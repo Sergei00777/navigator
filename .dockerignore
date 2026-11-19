@@ -1,0 +1,16 @@
+# в образ НЕ попадают ключи, профили, рейтинг и рабочие файлы
+settings_local.json
+profiles.json
+leaderboard.json
+school.json
+irkutsk_osm.json
+danger_spots.json
+cache_audio
+__pycache__
+.venv
+.idea
+.git
+tools
+for_friends
+*.tar
+стили для сайта

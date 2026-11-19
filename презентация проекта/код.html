@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АвтоНавигатор: сначала маршрут — потом дорога</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #1a1a2e;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Контейнер для слайдов */
+        .presentation-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 5% 10%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            transform: translateX(50px);
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(0);
+        }
+
+        /* Типографика */
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: #e94560;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #f1f1f1;
+            margin-bottom: 2rem;
+            border-bottom: 3px solid #e94560;
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+
+        p {
+            font-size: 1.5rem;
+            line-height: 1.6;
+            color: #c4c4c4;
+            margin-bottom: 1.5rem;
+            max-width: 900px;
+        }
+
+        .highlight {
+            color: #e94560;
+            font-weight: 700;
+        }
+
+        .quote {
+            font-style: italic;
+            color: #a8a8b3;
+            font-size: 1.8rem;
+            border-left: 5px solid #e94560;
+            padding-left: 20px;
+            margin: 2rem 0;
+        }
+
+        .diagram {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .diagram-box {
+            background: rgba(233, 69, 96, 0.1);
+            border: 2px solid #e94560;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .diagram-arrow {
+            font-size: 2rem;
+            color: #e94560;
+        }
+
+        /* Подвал с навигацией */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .btn {
+            background: rgba(233, 69, 96, 0.2);
+            border: 2px solid #e94560;
+            color: #fff;
+            padding: 10px 25px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .btn:hover {
+            background: #e94560;
+            transform: scale(1.05);
+        }
+
+        .progress {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            font-size: 1.2rem;
+            color: #a8a8b3;
+            z-index: 100;
+        }
+
+        /* Анимации элементов внутри слайда */
+        .slide.active h1 { animation: slideUp 0.6s ease forwards; }
+        .slide.active h2 { animation: slideUp 0.6s ease 0.2s forwards; opacity: 0; }
+        .slide.active p  { animation: slideUp 0.6s ease 0.4s forwards; opacity: 0; }
+        .slide.active .diagram { animation: slideUp 0.6s ease 0.6s forwards; opacity: 0; }
+        .slide.active .quote { animation: slideUp 0.6s ease 0.6s forwards; opacity: 0; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="presentation-container">
+        <div class="progress" id="progress">1 / 9</div>
+
+        <!-- Слайд 1: Титульный -->
+        <div class="slide active">
+            <h1>АвтоНавигатор</h1>
+            <h2>Сначала маршрут — потом дорога</h2>
+            <p>Проект подготовки к реальному маршруту</p>
+            <p style="font-size: 1.2rem; color: #a8a8b3;">Автор проекта: Сергей</p>
+        </div>
+
+        <!-- Слайд 2: Сцена 1 -->
+        <div class="slide">
+            <h2>1. Не просто навигатор</h2>
+            <p>Здравствуйте! Меня зовут Сергей, и сегодня я расскажу про проект, который помогает будущему водителю не просто найти дорогу — а <span class="highlight">понять её заранее</span>.</p>
+            <p>Когда человек только учится водить, у него обычно есть две проблемы:</p>
+            <ul style="font-size: 1.4rem; color: #c4c4c4; line-height: 1.8; margin-left: 20px;">
+                <li>Теория есть, а уверенности нет.</li>
+                <li>Город большой, дороги сложные, а первый выезд — самый страшный.</li>
+            </ul>
+        </div>
+
+        <!-- Слайд 3: Проблема -->
+        <div class="slide">
+            <h2>2. Знакомая ситуация?</h2>
+            <p>Представьте: завтра у вас первое практическое занятие. Вы открываете обычный навигатор, и он говорит:</p>
+            <div class="quote">«Через двести метров поверните направо».</div>
+            <p>И всё. А вы стоите на перекрёстке и думаете: какая полоса? Кому уступать? Куда смотреть? И почему вокруг столько машин?</p>
+            <p class="highlight">Вот именно для этого и нужен АвтоНавигатор.</p>
+        </div>
+
+        <!-- Слайд 4: Что это -->
+        <div class="slide">
+            <h2>3. Что такое АвтоНавигатор</h2>
+            <p>Это <span class="highlight">тренажёр</span> подготовки к реальному маршруту.</p>
+            <p>Не виртуальный город. Не абстрактные картинки. А настоящие улицы, настоящие перекрёстки и реальные ситуации, с которыми ученик может столкнуться в Иркутске.</p>
+            <div class="diagram">
+                <div class="diagram-box">Маршрут</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Опасные точки</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Задания</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Результат</div>
+            </div>
+        </div>
+
+        <!-- Слайд 5: Опасная точка -->
+        <div class="slide">
+            <h2>4. Опасная точка</h2>
+            <p>Вот, например, <span class="highlight">Глазковский мост</span>.</p>
+            <p>Для новичка это не просто «ехать прямо». Это место, где важно не перестраиваться резко, держать дистанцию и помнить: зимой мост может быть скользким.</p>
+            <div class="quote">«Впереди мост. Что нужно сделать заранее?»</div>
+            <p>Если ошибся — ничего страшного. Это тренировка. Зато в реальной дороге он уже будет понимать, почему здесь нельзя торопиться.</p>
+        </div>
+
+        <!-- Слайд 6: Задания -->
+        <div class="slide">
+            <h2>5. Задания, а не тесты</h2>
+            <p>В АвтоНавигаторе они не выглядят как скучный тест из билета.</p>
+            <p>Например: «Через 300 метров поворот налево. Займите одну из двух левых полос».</p>
+            <p>Ученик должен не просто нажать «правильно». Он должен понять: почему именно левая полоса, что будет, если поехать по правой, и когда нужно перестроиться.</p>
+            <div class="diagram">
+                <div class="diagram-box">Поворот</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Полоса</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Сигнал</div>
+            </div>
+        </div>
+
+        <!-- Слайд 7: Профиль ученика -->
+        <div class="slide">
+            <h2>6. Профиль ученика</h2>
+            <p>А теперь самое интересное — <span class="highlight">прогресс</span>.</p>
+            <p>После занятий приложение видит: где ученик уверенно справляется, а где чаще ошибается.</p>
+            <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin: 20px 0; width: 60%;">
+                <p style="margin-bottom: 5px; font-size: 1.2rem;">Повороты — 85%</p>
+                <div style="height: 10px; background: #333; border-radius: 5px; margin-bottom: 15px;"><div style="width: 85%; height: 100%; background: #4CAF50; border-radius: 5px;"></div></div>
+                <p style="margin-bottom: 5px; font-size: 1.2rem;">Полосы — 60%</p>
+                <div style="height: 10px; background: #333; border-radius: 5px; margin-bottom: 15px;"><div style="width: 60%; height: 100%; background: #FFC107; border-radius: 5px;"></div></div>
+                <p style="margin-bottom: 5px; font-size: 1.2rem;">Развороты — 40%</p>
+                <div style="height: 10px; background: #333; border-radius: 5px;"><div style="width: 40%; height: 100%; background: #e94560; border-radius: 5px;"></div></div>
+            </div>
+            <p>Не «пройди ещё сто вопросов», а «вот твой слабый навык — вот тренировка под него».</p>
+        </div>
+
+        <!-- Слайд 8: Для инструктора -->
+        <div class="slide">
+            <h2>7. Для инструктора</h2>
+            <p>Здесь начинается важная часть для автошкол.</p>
+            <p>Инструктор открывает профиль ученика и видит: какие маршруты он проходил, где ошибся, какие темы нужно повторить.</p>
+            <div class="diagram">
+                <div class="diagram-box">Ученик</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Данные</div>
+                <div class="diagram-arrow">→</div>
+                <div class="diagram-box">Инструктор</div>
+            </div>
+            <p>Это делает занятие более предметным. Инструктор не угадывает, с чего начать, а сразу работает по конкретной проблеме.</p>
+        </div>
+
+        <!-- Слайд 9: Чем отличаемся + Финал -->
+        <div class="slide">
+            <h2>8. Чем мы отличаемся</h2>
+            <div class="diagram" style="flex-direction: column; align-items: flex-start; margin-bottom: 30px;">
+                <p><span class="highlight">Навигатор</span> довезёт. Но не научит.</p>
+                <p><span class="highlight">Симулятор</span> даст виртуальную дорогу. Но не ваш реальный маршрут.</p>
+                <p><span class="highlight">АвтоНавигатор</span> готовит к конкретной поездке по конкретному городу.</p>
+            </div>
+            <p class="quote">Мы не заменяем инструктора и не учим «вождению вообще». Мы готовим человека к его завтрашней дороге.</p>
+        </div>
+
+        <!-- Слайд 10: Финальный -->
+        <div class="slide" style="text-align: center; align-items: center;">
+            <h1 style="font-size: 2.5rem;">АвтоНавигатор</h1>
+            <h2 style="font-size: 1.8rem; margin-bottom: 3rem;">Сначала маршрут. Потом — дорога.</h2>
+            <p style="max-width: 700px; font-size: 1.4rem;">Хорошая поездка начинается не тогда, когда ты уже выехал.<br>А тогда, когда ты заранее знаешь, что тебя ждёт.</p>
+            <p style="margin-top: 3rem; font-size: 1.2rem; color: #a8a8b3;">Спасибо за внимание!</p>
+        </div>
+
+        <!-- Кнопки управления -->
+        <div class="controls">
+            <button class="btn" onclick="prevSlide()">◀ Назад</button>
+            <button class="btn" onclick="nextSlide()">Вперед ▶</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const progress = document.getElementById('progress');
+        const totalSlides = slides.length;
+
+        function showSlide(index) {
+            // Скрываем все слайды
+            slides.forEach((slide, i) => {
+                slide.classList.remove('active');
+            });
+
+            // Показываем нужный
+            slides[index].classList.add('active');
+
+            // Обновляем счетчик
+            progress.textContent = `${index + 1} / ${totalSlides}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                showSlide(currentSlide);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                showSlide(currentSlide);
+            }
+        }
+
+        // Управление стрелками на клавиатуре
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+    </script>
+</body>
+</html>

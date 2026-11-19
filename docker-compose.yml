@@ -1,0 +1,16 @@
+# Запуск: docker compose up -d   →   http://localhost:8765
+# Ключи можно положить в файл .env рядом (DGIS_KEY=..., YANDEX_API_KEY=...)
+services:
+  shturman38:
+    build: .
+    image: shturman38
+    ports:
+      - "8765:8765"
+    environment:
+      - DGIS_KEY=${DGIS_KEY:-}
+      - YANDEX_API_KEY=${YANDEX_API_KEY:-}
+    volumes:
+      - shturman38-data:/data
+    restart: unless-stopped
+volumes:
+  shturman38-data:

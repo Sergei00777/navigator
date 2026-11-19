@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Игра-навигатор · Иркутск</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#C9272E">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e4e2dc;
+          --accent:#2f6f5e; --accent2:#e9f2ef; --warn:#b5532a; --ok:#2f8a4e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 "Segoe UI", system-ui, sans-serif; color:var(--ink); background:var(--bg);
+         display:flex; height:100vh; overflow:hidden; }
+  #side { width:400px; min-width:340px; overflow-y:auto; padding:18px 18px 40px; border-right:1px solid var(--line); }
+  #map { flex:1; position:relative; }
+  h1 { font-size:20px; margin:0 0 2px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  label { font-size:12px; color:var(--muted); display:block; margin:6px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  .row { display:flex; gap:6px; }
+  input { flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+  button { font:inherit; border:1px solid var(--line); background:#fff; border-radius:8px; padding:8px 12px; cursor:pointer; }
+  button:hover { border-color:#c9c6bd; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button.primary:hover { filter:brightness(1.08); }
+  button:disabled { opacity:.5; cursor:default; }
+  .big { width:100%; padding:11px; margin-top:8px; }
+  .results { margin-top:4px; }
+  .results div { padding:6px 8px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .results div:hover { background:var(--accent2); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-size:13px; padding:5px 10px; border-radius:20px; background:var(--accent2); border-color:transparent; }
+  .hint { font-size:12px; color:var(--muted); margin-top:8px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; text-align:center; }
+  .stats b { display:block; font-size:18px; }
+  .stats span { font-size:11px; color:var(--muted); }
+  .steps { list-style:none; padding:0; margin:0; }
+  .steps li { padding:8px 6px 8px 34px; position:relative; border-bottom:1px solid var(--line); font-size:14px; cursor:pointer; }
+  .steps li:last-child { border-bottom:0; }
+  .steps li .n { position:absolute; left:4px; top:8px; width:22px; height:22px; border-radius:50%; background:var(--accent2);
+                 color:var(--accent); font-size:12px; font-weight:700; display:grid; place-items:center; }
+  .steps li.hard .n { background:#fbe9df; color:var(--warn); }
+  .steps li.now { background:var(--accent2); }
+  select { font:inherit; padding:7px; border-radius:8px; border:1px solid var(--line); background:#fff; }
+  #status { font-size:13px; color:var(--muted); min-height:18px; margin-top:6px; }
+  #game { position:absolute; left:50%; bottom:24px; transform:translateX(-50%); z-index:1000; width:min(560px, 92%);
+          background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.18); padding:16px 18px; display:none; }
+  #game .top { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); }
+  #gq { font-size:19px; font-weight:600; margin:10px 0 12px; text-align:center; }
+  #gbtn { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  #gbtn button { font-size:17px; padding:12px 16px; min-width:92px; border-radius:12px; }
+  #gbtn button.right { background:var(--ok); border-color:var(--ok); color:#fff; }
+  #gbtn button.wrong { background:#f6dcd2; border-color:var(--warn); }
+  #gmsg { text-align:center; margin-top:10px; min-height:20px; font-size:14px; }
+  .car { width:26px; height:26px; }
+  .car div { width:26px; height:26px; border-radius:50%; background:var(--accent); border:3px solid #fff;
+             box-shadow:0 2px 6px rgba(0,0,0,.35); position:relative; }
+  .car div:after { content:""; position:absolute; left:50%; top:-9px; transform:translateX(-50%);
+                   border:6px solid transparent; border-bottom:9px solid var(--accent); }
+  .mnum { background:#fff; border:2px solid var(--accent); color:var(--accent); border-radius:50%; width:22px; height:22px;
+          font:700 11px/18px "Segoe UI", sans-serif; text-align:center; }
+  .mnum.hard { border-color:var(--warn); color:var(--warn); }
+.leaflet-control-attribution a[href*="leafletjs"], .leaflet-attribution-flag { display:none !important; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>Игра-навигатор</h1>
+  <div class="sub">Иркутск · сначала услышал маршрут, потом спокойно поехал</div>
+
+  <div class="card">
+    <label>Откуда</label>
+    <div class="row"><input id="qFrom" placeholder="Например: площадь Кирова"><button onclick="search('from')">Найти</button></div>
+    <div class="results" id="rFrom"></div>
+    <label>Куда</label>
+    <div class="row"><input id="qTo" placeholder="Например: аэропорт Иркутск"><button onclick="search('to')">Найти</button></div>
+    <div class="results" id="rTo"></div>
+    <div class="hint">Можно просто кликнуть по карте: первый клик — старт, второй — финиш.</div>
+    <label style="margin-top:12px">Готовые сценарии</label>
+    <div class="chips" id="presets"></div>
+    <button class="primary big" id="btnRoute" onclick="makeRoute()">Построить маршрут</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <label style="margin-top:0">Голос</label>
+    <div id="vInfo" class="hint" style="margin-top:0"></div>
+    <div id="keyBox" style="display:none; margin-top:8px">
+      <div class="row"><input id="yaKey" placeholder="API-ключ Яндекса (AQVN…)" type="password">
+        <button onclick="saveKey()">Сохранить</button></div>
+      <div class="hint">Тот же ключ, что в программе «Голос». Сохранится и для неё.</div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <select id="vVoice" style="flex:1.2" onchange="fillRoles(); saveVoice()"></select>
+      <select id="vRole" style="flex:1" onchange="saveVoice()"></select>
+    </div>
+    <div class="row" style="margin-top:6px; align-items:center">
+      <select id="vSpeed" style="flex:1" onchange="saveVoice()">
+        <option value="0.85">Медленнее</option>
+        <option value="0.95">Спокойно</option>
+        <option value="1">Обычно</option>
+        <option value="1.1">Быстрее</option>
+      </select>
+      <button style="flex:1" onclick="speak('Здравствуйте! Я буду вашим штурманом. Не спешите, маршрут мы пройдём вместе.')">▶ Послушать</button>
+    </div>
+  </div>
+
+  <div id="routeBox" style="display:none">
+    <div class="card">
+      <div class="stats">
+        <div><b id="sDist">–</b><span>расстояние</span></div>
+        <div><b id="sTime">–</b><span>в пути</span></div>
+        <div><b id="sMan">–</b><span>манёвров</span></div>
+        <div><b id="sSig">–</b><span>светофоров</span></div>
+      </div>
+      <button class="primary big" id="btnListen" onclick="listen()">▶ Прослушать маршрут</button>
+      <div class="row" style="margin-top:10px; align-items:center">
+        <select id="gMode" style="flex:1">
+          <option value="hints">С подсказками голоса</option>
+          <option value="memory">По памяти (экзамен)</option>
+        </select>
+        <select id="gSpeed">
+          <option value="3">Медленно</option>
+          <option value="6" selected>Средне</option>
+          <option value="12">Быстро</option>
+        </select>
+      </div>
+      <button class="big" id="btnGame" onclick="startGame()">🎮 Тренировка: проехать маршрут</button>
+    </div>
+    <div class="card">
+      <label style="margin-top:0">Маршрут по шагам</label>
+      <ul class="steps" id="steps"></ul>
+    </div>
+  </div>
+</div>
+
+<div id="map">
+  <div id="game">
+    <div class="top"><span id="gProg"></span><span id="gScore"></span></div>
+    <div id="gq"></div>
+    <div id="gbtn"></div>
+    <div id="gmsg"></div>
+  </div>
+</div>
+
+<script>
+// ---------------- Карта ----------------
+const map = L.map('map', { zoomControl: true }).setView([52.2870, 104.2810], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '&copy; участники OpenStreetMap'
+}).addTo(map);
+map.attributionControl.setPrefix(false);
+
+const pts = { from: null, to: null };
+let mFrom = null, mTo = null, layers = L.layerGroup().addTo(map);
+let R = null;          // текущий маршрут от сервера
+let voiceMode = 'browser';
+
+let VOICES = [], liveState = { ok: null, error: '' };
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+function voiceSettings() {
+  return { voice: document.getElementById('vVoice').value, role: document.getElementById('vRole').value,
+           speed: Number(document.getElementById('vSpeed').value) };
+}
+function fillRoles(keep) {
+  const v = VOICES.find(x => x.id === document.getElementById('vVoice').value);
+  const sel = document.getElementById('vRole'); sel.innerHTML = '';
+  (v ? v.roles : []).forEach(([id, name]) => sel.add(new Option(name, id)));
+  if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+  const sp = document.getElementById('vSpeed');   // у живых голосов Яндекс скорость не меняет
+  sp.disabled = !!(v && v.family === 'live') || voiceMode !== 'yandex';
+  sp.title = sp.disabled ? 'У живых голосов LiveTTS скорость не настраивается' : '';
+}
+function saveVoice() { const v = voiceSettings(); store('nav_voice', JSON.stringify(v)); }
+function showVoiceInfo() {
+  const info = { yandex: '✅ Говорит Яндекс SpeechKit.',
+                 edge: '⚠️ Ключ Яндекса не найден — говорит запасной голос Microsoft. Вставьте ключ, чтобы включить живые голоса.',
+                 browser: '⚠️ Ключ Яндекса не найден — говорит робот браузера. Вставьте ключ, чтобы включить живые голоса.' };
+  let t = info[voiceMode] || '';
+  if (voiceMode === 'yandex' && liveState.ok === false)
+    t = '⚠️ Живые голоса LiveTTS для вашего ключа Яндекс не включил (ответ: «' + liveState.error +
+        '»). Пока говорит Марина — или выберите любой обычный голос Яндекса.';
+  document.getElementById('vInfo').textContent = t;
+  document.getElementById('keyBox').style.display = voiceMode === 'yandex' ? 'none' : '';
+  const off = voiceMode !== 'yandex';
+  ['vVoice', 'vRole'].forEach(id => document.getElementById(id).disabled = off);
+  fillRoles(document.getElementById('vRole').value);
+}
+async function saveKey() {
+  const key = document.getElementById('yaKey').value.trim();
+  if (!key) return;
+  try {
+    const r = await (await fetch('/api/key', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                               body: JSON.stringify({ key }) })).json();
+    if (r.error) throw new Error(r.error);
+    voiceMode = r.voice; showVoiceInfo();
+    if (voiceMode === 'yandex') speak('Ключ сохранён. Теперь я говорю живым голосом.');
+  } catch (e) { alert('Не удалось сохранить ключ: ' + e.message); }
+}
+fetch('/api/status').then(r => r.json()).then(s => {
+  voiceMode = s.voice; VOICES = s.voices || [];
+  const vs = document.getElementById('vVoice');
+  const groups = { live: 'Живые голоса (LiveTTS)', general: 'Обычные голоса Яндекса' };
+  Object.entries(groups).forEach(([fam, title]) => {
+    const og = document.createElement('optgroup'); og.label = title;
+    VOICES.filter(v => v.family === fam).forEach(v => og.appendChild(new Option(v.name, v.id)));
+    vs.appendChild(og);
+  });
+  liveState = { ok: s.live_ok, error: s.live_error };
+  let saved = null; try { saved = JSON.parse(store('nav_voice') || 'null'); } catch (e) {}
+  vs.value = (saved && VOICES.some(v => v.id === saved.voice)) ? saved.voice : s.default_voice;
+  fillRoles(saved ? saved.role : s.default_role);
+  document.getElementById('vSpeed').value = String(saved ? saved.speed : s.default_speed);
+  if (!document.getElementById('vSpeed').value) document.getElementById('vSpeed').value = '0.95';
+  showVoiceInfo();
+}).catch(() => {});
+
+const PRESETS = [
+  { t: 'Площадь Кирова → Аэропорт', a: [52.2873, 104.2807, 'Площадь Кирова'], b: [52.2680, 104.3889, 'Аэропорт Иркутск'] },
+  { t: 'Ж/д вокзал → 130 квартал', a: [52.2836, 104.2588, 'Ж/д вокзал'], b: [52.2770, 104.2875, '130 квартал'] },
+  { t: 'Центр → Академгородок', a: [52.2873, 104.2807, 'Площадь Кирова'], b: [52.2470, 104.2660, 'Академгородок'] },
+];
+const pe = document.getElementById('presets');
+PRESETS.forEach(p => {
+  const b = document.createElement('button'); b.className = 'chip'; b.textContent = p.t;
+  b.onclick = () => { setPoint('from', p.a[0], p.a[1], p.a[2]); setPoint('to', p.b[0], p.b[1], p.b[2]); makeRoute(); };
+  pe.appendChild(b);
+});
+
+function status(t) { document.getElementById('status').textContent = t || ''; }
+
+function setPoint(which, lat, lon, name) {
+  pts[which] = { lat, lon, name: name || 'Точка на карте' };
+  document.getElementById(which === 'from' ? 'qFrom' : 'qTo').value = pts[which].name;
+  const color = which === 'from' ? '#2f6f5e' : '#b5532a';
+  const m = L.circleMarker([lat, lon], { radius: 9, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 })
+    .bindTooltip(which === 'from' ? 'Старт' : 'Финиш');
+  if (which === 'from') { if (mFrom) map.removeLayer(mFrom); mFrom = m.addTo(map); }
+  else { if (mTo) map.removeLayer(mTo); mTo = m.addTo(map); }
+}
+
+map.on('click', e => {
+  if (game.on) return;
+  if (!pts.from || (pts.from && pts.to)) {
+    if (pts.to) { pts.to = null; if (mTo) map.removeLayer(mTo); mTo = null; document.getElementById('qTo').value = ''; }
+    setPoint('from', e.latlng.lat, e.latlng.lng);
+  } else {
+    setPoint('to', e.latlng.lat, e.latlng.lng);
+  }
+});
+
+async function search(which) {
+  const q = document.getElementById(which === 'from' ? 'qFrom' : 'qTo').value.trim();
+  const box = document.getElementById(which === 'from' ? 'rFrom' : 'rTo');
+  if (!q) return;
+  box.textContent = 'Ищу…';
+  try {
+    const res = await (await fetch('/api/geocode?q=' + encodeURIComponent(q))).json();
+    if (res.error) throw new Error(res.error);
+    box.innerHTML = '';
+    if (!res.length) { box.textContent = 'Ничего не нашёл в Иркутске. Попробуйте иначе или кликните по карте.'; return; }
+    res.forEach(r => {
+      const d = document.createElement('div'); d.textContent = r.name;
+      d.onclick = () => { setPoint(which, r.lat, r.lon, r.name.split(',')[0]); box.innerHTML = ''; map.setView([r.lat, r.lon], 15); };
+      box.appendChild(d);
+    });
+  } catch (e) { box.textContent = 'Ошибка поиска: ' + e.message; }
+}
+['qFrom', 'qTo'].forEach(id => document.getElementById(id).addEventListener('keydown', e => {
+  if (e.key === 'Enter') search(id === 'qFrom' ? 'from' : 'to');
+}));
+
+// ---------------- Маршрут ----------------
+function fmtKm(m) { return m < 1000 ? Math.round(m / 10) * 10 + ' м' : (m / 1000).toFixed(1).replace('.', ',') + ' км'; }
+
+async function makeRoute() {
+  if (!pts.from || !pts.to) { status('Укажите старт и финиш.'); return; }
+  stopAll();
+  status('Строю маршрут и ищу светофоры…');
+  document.getElementById('btnRoute').disabled = true;
+  try {
+    const u = `/api/route?from=${pts.from.lat},${pts.from.lon}&to=${pts.to.lat},${pts.to.lon}` +
+              `&fn=${encodeURIComponent(pts.from.name)}&tn=${encodeURIComponent(pts.to.name)}`;
+    const res = await (await fetch(u)).json();
+    if (res.error) throw new Error(res.error);
+    R = res; drawRoute();
+    status(res.osm_ok ? '' : 'Светофоры загрузить не удалось — рассказ будет без них.');
+  } catch (e) { status('Не получилось: ' + e.message); }
+  document.getElementById('btnRoute').disabled = false;
+}
+
+function drawRoute() {
+  layers.clearLayers();
+  const line = L.polyline(R.geometry, { color: '#2f6f5e', weight: 7, opacity: .85 }).addTo(layers);
+  R.signals.forEach(s => L.circleMarker(s, { radius: 4, color: '#c0392b', weight: 1, fillColor: '#f1c40f', fillOpacity: 1 })
+    .bindTooltip('Светофор').addTo(layers));
+  const ul = document.getElementById('steps'); ul.innerHTML = '';
+  let n = 0;
+  R.actions.forEach((a, i) => {
+    const li = document.createElement('li');
+    const num = a.kind === 'depart' ? 'A' : a.kind === 'arrive' ? 'Б' : String(++n);
+    li.innerHTML = `<span class="n">${num}</span>`;
+    li.appendChild(document.createTextNode(a.text));
+    if (a.hard) li.classList.add('hard');
+    li.onclick = () => map.setView([a.lat, a.lon], 17);
+    a.li = li; ul.appendChild(li);
+    if (a.kind !== 'depart' && a.kind !== 'arrive') {
+      L.marker([a.lat, a.lon], { icon: L.divIcon({ className: '', html: `<div class="mnum ${a.hard ? 'hard' : ''}">${num}</div>`, iconSize: [22, 22] }) })
+        .bindPopup(a.text).addTo(layers);
+    }
+  });
+  document.getElementById('sDist').textContent = fmtKm(R.total_m);
+  document.getElementById('sTime').textContent = Math.max(1, Math.round(R.duration_s / 60)) + ' мин';
+  document.getElementById('sMan').textContent = R.maneuvers;
+  document.getElementById('sSig').textContent = R.osm_ok ? R.signals_count : '?';
+  document.getElementById('routeBox').style.display = '';
+  map.fitBounds(line.getBounds(), { padding: [40, 40] });
+}
+
+// ---------------- Голос ----------------
+const audio = new Audio();
+let speakToken = 0;
+
+async function speak(text) {
+  const my = ++speakToken;
+  audio.pause(); speechSynthesis.cancel();
+  let url = null;
+  if (voiceMode !== 'browser') {
+    try {
+      const r = await (await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                 body: JSON.stringify(Object.assign({ text }, voiceSettings())) })).json();
+      url = r.url || null;
+      if (r.live_ok !== undefined && r.live_ok !== liveState.ok) { liveState = { ok: r.live_ok, error: r.live_error }; showVoiceInfo(); }
+    } catch (e) { url = null; }
+  }
+  if (my !== speakToken) return;
+  return new Promise(resolve => {
+    if (url) {
+      audio.src = url; audio.onended = resolve; audio.onerror = resolve;
+      audio.play().catch(resolve);
+    } else {
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'ru-RU'; u.rate = 0.95;
+      u.onend = resolve; u.onerror = resolve; speechSynthesis.speak(u);
+    }
+  });
+}
+function prefetch(texts) {  // заранее готовим mp3, чтобы в игре не было пауз
+  if (voiceMode === 'browser') return;
+  (async () => { for (const t of texts) { try { await fetch('/api/tts', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ text: t }, voiceSettings())) }); } catch (e) {} } })();
+}
+function stopSpeech() { speakToken++; audio.pause(); speechSynthesis.cancel(); }
+
+let listening = false;
+async function listen() {
+  const b = document.getElementById('btnListen');
+  if (listening) { stopSpeech(); listening = false; b.textContent = '▶ Прослушать маршрут'; return; }
+  if (!R) return;
+  listening = true; b.textContent = '⏳ Готовлю голос…';
+  const p = speak(R.story);
+  setTimeout(() => { if (listening) b.textContent = '■ Остановить'; }, 300);
+  await p;
+  listening = false; b.textContent = '▶ Прослушать маршрут';
+}
+
+// ---------------- Игра ----------------
+const game = { on: false };
+const DIRS = { left: '← Налево', straight: '↑ Прямо', right: 'Направо →', uturn: '↶ Разворот' };
+const DIRS_SAY = { left: 'налево', straight: 'прямо', right: 'направо', uturn: 'разворот' };
+const ORD = ['', 'первый', 'второй', 'третий', 'четвёртый', 'пятый', 'шестой', 'седьмой', 'восьмой'];
+const carIcon = L.divIcon({ className: 'car', html: '<div></div>', iconSize: [26, 26], iconAnchor: [13, 13] });
+
+function pointAt(s) {
+  const c = R.cum, g = R.geometry;
+  if (s <= 0) return { ll: g[0], i: 0 };
+  if (s >= c[c.length - 1]) return { ll: g[g.length - 1], i: g.length - 2 };
+  let lo = 0, hi = c.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] <= s) lo = m; else hi = m; }
+  const t = (s - c[lo]) / ((c[hi] - c[lo]) || 1);
+  return { ll: [g[lo][0] + (g[hi][0] - g[lo][0]) * t, g[lo][1] + (g[hi][1] - g[lo][1]) * t], i: lo };
+}
+function bearing(i) {
+  const g = R.geometry, a = g[i], b = g[Math.min(i + 1, g.length - 1)];
+  const y = Math.sin((b[1] - a[1]) * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180);
+  const x = Math.cos(a[0] * Math.PI / 180) * Math.sin(b[0] * Math.PI / 180) -
+            Math.sin(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * Math.cos((b[1] - a[1]) * Math.PI / 180);
+  return Math.atan2(y, x) * 180 / Math.PI;
+}
+
+function stopAll() {
+  stopSpeech();
+  if (game.on) endGame(false);
+}
+
+function startGame() {
+  if (!R) return;
+  if (game.on) { endGame(false); return; }
+  if (game.car) { map.removeLayer(game.car); game.car = null; }
+  stopSpeech(); listening = false; document.getElementById('btnListen').textContent = '▶ Прослушать маршрут';
+  const mode = document.getElementById('gMode').value;
+  const acts = R.actions.map((a, i) => {
+    const prev = i ? R.actions[i - 1].along : 0, seg = a.along - prev;
+    return Object.assign({}, a, { promptAt: a.along - Math.min(300, seg * 0.95),
+                                   askAt: a.along - Math.min(120, seg * 0.6), prompted: false, asked: false });
+  });
+  Object.assign(game, { on: true, mode, acts, s: 0, last: null, paused: false, score: 0, total: 0,
+                        speed: 11.1 * Number(document.getElementById('gSpeed').value),
+                        asks: acts.filter(a => a.question).length });
+  game.car = L.marker(R.geometry[0], { icon: carIcon, interactive: false, zIndexOffset: 1000 }).addTo(map);
+  map.setView(R.geometry[0], 17);
+  document.getElementById('btnGame').textContent = '■ Закончить тренировку';
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('gbtn').innerHTML = '';
+  document.getElementById('gmsg').textContent = '';
+  document.getElementById('gq').textContent = mode === 'memory' ? 'Экзамен: вспоминайте маршрут сами' : 'Слушайте подсказки и отвечайте';
+  updateScore();
+  const texts = mode === 'hints' ? acts.map(a => a.prompt).filter(Boolean) : ['Впереди манёвр. Куда едем?'];
+  prefetch(texts.concat(['Вы на месте. Отличная поездка.']));
+  speak(mode === 'memory' ? 'Поехали. Подсказок не будет — вспоминайте маршрут. Я спрошу перед каждым манёвром.'
+                          : 'Поехали. Я буду подсказывать, а вы отвечайте, куда поворачивать.')
+    .then(() => { if (game.on) requestAnimationFrame(tick); });
+}
+
+function updateScore() {
+  document.getElementById('gScore').textContent = `Верно: ${game.score} из ${game.total}`;
+  document.getElementById('gProg').textContent = `Пройдено ${fmtKm(game.s)} из ${fmtKm(R.total_m)}`;
+}
+
+function tick(ts) {
+  if (!game.on) return;
+  if (game.paused) { game.last = null; requestAnimationFrame(tick); return; }
+  if (game.last != null) game.s += game.speed * Math.min(0.1, (ts - game.last) / 1000);
+  game.last = ts;
+  const p = pointAt(game.s);
+  game.car.setLatLng(p.ll);
+  const el = game.car.getElement();
+  if (el) el.firstChild.style.transform = `rotate(${bearing(p.i)}deg)`;
+  map.panTo(p.ll, { animate: false });
+  updateScore();
+
+  for (const a of game.acts) {
+    if (game.mode === 'hints' && a.prompt && !a.prompted && a.kind !== 'arrive' && game.s >= a.promptAt) {
+      a.prompted = true; speak(a.prompt);
+      if (a.li) { document.querySelectorAll('.steps li.now').forEach(x => x.classList.remove('now')); a.li.classList.add('now'); }
+    }
+    if (a.question && !a.asked && game.s >= a.askAt) { a.asked = true; ask(a); break; }
+  }
+  if (game.s >= R.total_m) { finish(); return; }
+  requestAnimationFrame(tick);
+}
+
+function ask(a) {
+  game.paused = true;
+  const q = a.question, box = document.getElementById('gbtn');
+  document.getElementById('gq').textContent = q.type === 'exit' ? 'Кольцо. Какой съезд?' : 'Куда здесь едем?';
+  document.getElementById('gmsg').textContent = 'Машина подождёт — подумайте спокойно.';
+  if (game.mode === 'memory') speak('Впереди манёвр. Куда едем?');
+  box.innerHTML = '';
+  const opts = q.type === 'exit'
+    ? Array.from({ length: q.max }, (_, i) => [i + 1, (i + 1) + '-й съезд'])
+    : Object.entries(DIRS).filter(([k]) => k !== 'uturn' || q.answer === 'uturn');
+  opts.forEach(([val, label]) => {
+    const b = document.createElement('button'); b.textContent = label;
+    b.onclick = () => answer(a, val, b);
+    box.appendChild(b);
+  });
+}
+
+function answer(a, val, btn) {
+  const q = a.question, ok = String(val) === String(q.answer);
+  game.total++; if (ok) game.score++;
+  [...document.getElementById('gbtn').children].forEach(b => b.disabled = true);
+  btn.classList.add(ok ? 'right' : 'wrong');
+  const correct = q.type === 'exit' ? `${ORD[q.answer] || q.answer} съезд` : DIRS_SAY[q.answer];
+  const msg = ok ? 'Верно! 👍' : `Здесь нужно: ${correct}. Ничего страшного — едем дальше.`;
+  document.getElementById('gmsg').textContent = msg;
+  updateScore();
+  const done = () => { if (!game.on) return; document.getElementById('gbtn').innerHTML = '';
+                       document.getElementById('gq').textContent = ''; document.getElementById('gmsg').textContent = '';
+                       game.paused = false; };
+  if (ok) setTimeout(done, 900);
+  else speak(`Здесь нужно ${correct}. Ничего страшного, едем дальше.`).then(done);
+}
+
+function finish() {
+  const s = game.score, t = game.total;
+  const pct = t ? s / t : 1;
+  const verdict = pct === 1 ? 'Идеально! Маршрут вы знаете.' : pct >= 0.7 ? 'Хорошо! Ещё разок — и будет идеально.'
+                : 'Неплохо для начала. Прослушайте маршрут ещё раз и попробуйте снова.';
+  document.getElementById('gq').textContent = `Вы на месте! ${s} из ${t}`;
+  document.getElementById('gmsg').textContent = verdict;
+  document.getElementById('gbtn').innerHTML = '';
+  const again = document.createElement('button'); again.textContent = '↻ Ещё раз';
+  again.onclick = () => { endGame(false); startGame(); };
+  document.getElementById('gbtn').appendChild(again);
+  speak(`Вы на месте. Правильных ответов: ${s} из ${t}. ${verdict}`);
+  game.on = false; game.finished = true;
+  document.getElementById('btnGame').textContent = '🎮 Тренировка: проехать маршрут';
+}
+
+function endGame(keepPanel) {
+  game.on = false; stopSpeech();
+  if (game.car) { map.removeLayer(game.car); game.car = null; }
+  if (!keepPanel) document.getElementById('game').style.display = 'none';
+  document.querySelectorAll('.steps li.now').forEach(x => x.classList.remove('now'));
+  document.getElementById('btnGame').textContent = '🎮 Тренировка: проехать маршрут';
+}
+</script>
+</body>
+</html>

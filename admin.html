@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Штурман 38 · Панель автошкол</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --desk:#e1d7c2; --stone:#e5e7e0; --linen:#eeefe9; --cream:#fdfdf8; --paper:#fff;
+  --ink:#23251d; --txt:#4d4f46; --muted:#65675e; --line:#bfc1b7; --gold:#b17816;
+  --blue:#2f80fa; --amber:#eb9d2a; --amber-d:#cd8407; --flame:#f54e00; --moss:#6aa84f; --bad:#d64400;
+  --f:"Inter Tight", Inter, "Segoe UI", sans-serif; --fu:"IBM Plex Sans", Inter, sans-serif; --fm:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--desk); color:var(--txt); font:15px/1.45 var(--f); }
+button, input, select { font:inherit; color:inherit; }
+button { cursor:pointer; }
+:focus-visible { outline:2px solid var(--blue); outline-offset:1px; }
+.hidden { display:none !important; }
+header { position:sticky; top:0; z-index:5; background:var(--paper); border-bottom:1px solid var(--line); }
+.hwrap { max-width:1100px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.logo { font-weight:800; font-size:18px; letter-spacing:-.025em; color:var(--ink); }
+.logo span { color:var(--gold); }
+.who { margin-left:auto; font:500 13px var(--fu); color:var(--muted); }
+main { max-width:1100px; margin:0 auto; padding:18px 16px 80px; display:flex; flex-direction:column; gap:14px; }
+h1 { margin:0; font-size:28px; font-weight:800; letter-spacing:-.025em; color:var(--ink); line-height:1.2; }
+h2 { margin:0; font-size:19px; font-weight:700; letter-spacing:-.02em; color:var(--ink); }
+.card { background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:16px; }
+.lbl { font:500 12px var(--fu); color:var(--muted); }
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); }
+.kpis { display:grid; gap:8px; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); }
+.kpi { background:var(--cream); border:1px solid var(--line); border-radius:4px; padding:10px 12px; }
+.kpi b { display:block; font-size:24px; font-weight:800; color:var(--ink); letter-spacing:-.03em; }
+.kpi span { font:500 12px var(--fu); color:var(--muted); }
+.btn { height:40px; border-radius:4px; border:0; background:var(--amber); color:var(--ink); font:600 14px var(--fu); padding:0 14px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12); white-space:nowrap; }
+.btn:hover { background:var(--amber-d); }
+.btn.ghost { background:transparent; border:1.5px solid var(--gold); color:var(--gold); box-shadow:none; }
+.btn.ghost:hover { background:#f6ecd8; }
+.btn.danger { background:transparent; border:1.5px solid var(--bad); color:var(--bad); box-shadow:none; }
+.btn.danger:hover { background:#fde6da; }
+.btn.small { height:32px; padding:0 10px; font-size:13px; }
+.link { border:0; background:none; padding:0; color:var(--blue); font:500 14px var(--fu); text-decoration:underline; text-underline-offset:3px; }
+input, select { height:40px; border:1px solid var(--line); border-radius:4px; background:var(--cream); padding:0 10px; color:var(--ink); min-width:0; }
+input:focus, select:focus { outline:0; border-color:var(--blue); box-shadow:0 0 0 1px var(--blue); background:#fff; }
+.field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:160px; }
+.err { color:var(--bad); font-weight:600; font-size:14px; min-height:20px; }
+.ok { color:#4f8a35; font-weight:600; font-size:14px; }
+.tabs { display:flex; gap:0; border-bottom:1px solid var(--line); }
+.tabs button { border:0; background:none; padding:10px 14px; font:500 14px var(--fu); color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tabs button.on { color:var(--blue); border-bottom-color:var(--blue); }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { text-align:left; font:500 12px var(--fu); color:var(--muted); padding:8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+td { padding:9px 8px; border-bottom:1px solid var(--stone); vertical-align:middle; }
+tr.click { cursor:pointer; } tr.click:hover td { background:var(--cream); }
+.code { font:600 14px var(--fm); letter-spacing:.08em; background:var(--linen); border:1px solid var(--line); border-radius:4px; padding:2px 6px; color:var(--ink); }
+.flag { display:inline-block; font:600 12px var(--fu); padding:2px 7px; border-radius:4px; background:#fde6da; color:var(--bad); }
+.fine { display:inline-block; font:600 12px var(--fu); padding:2px 7px; border-radius:4px; background:#e6f0df; color:#4f8a35; }
+.muted { color:var(--muted); font-size:13px; }
+.badges { display:flex; flex-wrap:wrap; gap:8px; }
+.badge { border:1.5px solid var(--gold); background:#fdf1dc; color:var(--ink); border-radius:4px; padding:6px 10px; font:600 13px var(--fu); }
+.badge.off { border:1px dashed var(--line); background:var(--cream); color:var(--muted); font-weight:500; }
+.prob { border-left:3px solid var(--flame); background:var(--cream); border-radius:4px; padding:10px 12px; margin-bottom:8px; }
+.prob b { color:var(--ink); }
+.prob .tip { font-size:13px; color:var(--muted); margin-top:3px; }
+.bar { height:8px; border-radius:2px; background:var(--stone); border:1px solid var(--line); overflow:hidden; }
+.bar > div { height:100%; }
+.stat { display:grid; grid-template-columns:minmax(120px,1fr) 2fr 70px; gap:10px; align-items:center; padding:6px 0; font-size:14px; }
+.stat span:last-child { font:500 12px var(--fm); text-align:right; }
+.ev { display:flex; gap:12px; padding:9px 0; border-bottom:1px solid var(--stone); font-size:14px; }
+.ev:last-child { border:0; }
+.ev .d { flex-shrink:0; width:92px; font:500 12px var(--fm); color:var(--muted); padding-top:2px; }
+.ev .m { font-size:13px; color:var(--muted); margin-top:3px; }
+details summary { cursor:pointer; color:var(--blue); font:500 13px var(--fu); }
+.login { max-width:380px; margin:10vh auto 0; display:flex; flex-direction:column; gap:12px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px) { .two { grid-template-columns:1fr; } .hide-m { display:none; } h1 { font-size:24px; } }
+.crumbs { font:500 13px var(--fu); color:var(--muted); display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.crumbs button { border:0; background:none; padding:0; color:var(--blue); font:inherit; text-decoration:underline; text-underline-offset:3px; }
+</style>
+</head>
+<body>
+<header><div class="hwrap"><span class="logo">Штурман <span>38</span> · панель автошкол</span>
+  <span class="who" id="who"></span>
+  <button class="btn ghost small hidden" id="btnPw" onclick="pwForm()">Сменить пароль</button>
+  <button class="btn ghost small hidden" id="btnOut" onclick="logout()">Выйти</button></div></header>
+<main id="app"></main>
+
+<script>
+const $ = id => document.getElementById(id), app = $('app');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const CAT_TIPS = {
+  ring: 'На кольце считать съезды по порядку, начиная с первого после въезда.',
+  left_free: 'Без светофора уступать встречным, поворачивать при разрыве в потоке.',
+  left_signal: 'На светофоре при повороте налево пропускать встречных прямо и направо.',
+  right: 'Перед поворотом направо занимать крайнюю правую полосу, пропускать пешеходов.',
+  straight: 'Запоминать, где маршрут идёт прямо, а не поворачивает.',
+  uturn: 'Разворачиваться только там, где разрешено, уступать встречным.',
+  fork: 'На развилке заранее выбирать сторону и держаться своей полосы.',
+  lane: 'Занимать нужную полосу заранее — за 200–300 метров.' };
+let ME = null, SCHOOL = null, TAB = 'students', ONLY_MINE = false;
+
+async function api(url, body) {
+  const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { ME = null; showLogin(j.error); throw new Error(j.error || 'Нужно войти'); }
+  if (!r.ok) throw new Error(j.error || 'Ошибка ' + r.status);
+  return j;
+}
+const when = ts => { if (!ts) return '—'; const d = Math.floor((Date.now() / 1000 - ts) / 86400);
+  return d <= 0 ? 'сегодня' : d === 1 ? 'вчера' : d + ' дн. назад'; };
+const dt = ts => new Date(ts * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const pct = v => v === null || v === undefined ? '—' : v + '%';
+const color = p => p >= 80 ? '#6aa84f' : p >= 50 ? '#eb9d2a' : '#f54e00';
+
+// ---------- вход ----------
+function showLogin(msg) {
+  $('who').textContent = ''; $('btnOut').classList.add('hidden'); $('btnPw').classList.add('hidden');
+  app.innerHTML = `<form class="card login" onsubmit="doLogin(event)">
+    <h1>Вход</h1><div class="muted">Для администратора и преподавателей автошкол.</div>
+    <label class="field"><span class="lbl">Логин</span><input id="lg" autocomplete="username" required></label>
+    <label class="field"><span class="lbl">Пароль</span><input id="pw" type="password" autocomplete="current-password" required></label>
+    <div class="err" id="lerr">${esc(msg && msg !== 'Нужно войти.' ? msg : '')}</div>
+    <button class="btn">Войти</button></form>`;
+  $('lg').focus();
+}
+async function doLogin(e) {
+  e.preventDefault(); $('lerr').textContent = '';
+  try { ME = await api('/api/adm/login', { login: $('lg').value, password: $('pw').value }); start(); }
+  catch (err) { $('lerr').textContent = err.message; }
+}
+async function logout() { await api('/api/adm/logout', {}).catch(() => {}); ME = null; showLogin(); }
+function pwForm() {
+  app.insertAdjacentHTML('afterbegin', `<form class="card" id="pwCard" onsubmit="changePw(event)"><h2>Сменить пароль</h2>
+    <div class="row" style="margin-top:10px"><label class="field"><span class="lbl">Старый пароль</span><input type="password" id="pwOld" required autocomplete="current-password"></label>
+    <label class="field"><span class="lbl">Новый пароль (минимум 8 символов)</span><input type="password" id="pwNew" minlength="8" required autocomplete="new-password"></label></div>
+    <div class="row" style="margin-top:10px"><button class="btn">Сохранить</button><button type="button" class="btn ghost" onclick="$('pwCard').remove()">Отмена</button><span class="err" id="pwErr"></span></div></form>`);
+}
+async function changePw(e) {
+  e.preventDefault();
+  try { await api('/api/adm/password', { old: $('pwOld').value, new: $('pwNew').value }); $('pwCard').innerHTML = '<div class="ok">Пароль изменён.</div>'; setTimeout(() => $('pwCard')?.remove(), 2000); }
+  catch (err) { $('pwErr').textContent = err.message; }
+}
+
+// ---------- старт ----------
+async function start() {
+  try { ME = ME || await api('/api/adm/me'); } catch (e) { return; }
+  $('who').textContent = `${ME.name} · ${ME.role === 'admin' ? 'администратор' : 'преподаватель, ' + ME.school_name}`;
+  $('btnOut').classList.remove('hidden'); $('btnPw').classList.remove('hidden');
+  if (ME.role === 'admin') home(); else openSchool(ME.school);
+}
+
+// ---------- администратор: автошколы ----------
+async function home() {
+  SCHOOL = null;
+  const list = await api('/api/adm/schools');
+  app.innerHTML = `<h1>Автошколы</h1>
+    <div class="grid">${list.map(s => `<button class="card" style="text-align:left; cursor:pointer" onclick="openSchool('${s.id}')">
+      <h2>${esc(s.name)}</h2><div class="muted">${esc(s.city)}</div>
+      <div class="row" style="margin-top:10px; font-size:14px"><span>👩‍🏫 ${s.teachers} препод.</span><span>🎓 ${s.students} учеников</span></div></button>`).join('') ||
+      '<div class="card muted">Пока нет ни одной автошколы. Добавьте первую ниже.</div>'}</div>
+    <form class="card" onsubmit="addSchool(event)"><h2>Добавить автошколу</h2>
+      <div class="row" style="margin-top:10px">
+        <label class="field" style="flex:2"><span class="lbl">Название</span><input id="sName" required maxlength="60" placeholder="Например: Автошкола «Форсаж»"></label>
+        <label class="field"><span class="lbl">Город</span><input id="sCity" value="Иркутск" maxlength="40"></label>
+        <button class="btn" style="align-self:flex-end">Добавить</button></div><div class="err" id="sErr"></div></form>`;
+}
+async function addSchool(e) {
+  e.preventDefault();
+  try { await api('/api/adm/school', { op: 'add', name: $('sName').value, city: $('sCity').value }); home(); } catch (err) { $('sErr').textContent = err.message; }
+}
+
+// ---------- автошкола ----------
+async function openSchool(id, tab) {
+  SCHOOL = await api('/api/adm/school?id=' + id); if (tab) TAB = tab;
+  const isAdm = ME.role === 'admin';
+  app.innerHTML = `${isAdm ? `<div class="crumbs"><button onclick="home()">Автошколы</button> › <span>${esc(SCHOOL.name)}</span></div>` : ''}
+    <div class="row"><h1 style="flex:1">${esc(SCHOOL.name)}</h1>${isAdm ? `<button class="btn ghost small" onclick="renameSchool()">Переименовать</button><button class="btn danger small" onclick="delSchool()">Удалить</button>` : ''}</div>
+    <div class="kpis">
+      <div class="kpi"><b>${SCHOOL.students.length}</b><span>учеников</span></div>
+      <div class="kpi"><b>${SCHOOL.teachers.length}</b><span>преподавателей</span></div>
+      <div class="kpi"><b>${SCHOOL.students.filter(s => s.last && Date.now() / 1000 - s.last < 7 * 86400).length}</b><span>занимались за неделю</span></div>
+      <div class="kpi"><b>${SCHOOL.students.filter(s => s.flags).length}</b><span>с проблемами</span></div></div>
+    <div class="tabs"><button class="${TAB === 'students' ? 'on' : ''}" onclick="TAB='students'; openSchool('${id}')">Ученики</button>
+      ${isAdm ? `<button class="${TAB === 'teachers' ? 'on' : ''}" onclick="TAB='teachers'; openSchool('${id}')">Преподаватели</button>` : ''}</div>
+    <div id="tabBody"></div>`;
+  if (TAB === 'teachers' && isAdm) teachersTab(); else studentsTab();
+}
+function studentsTab() {
+  const tsel = (v) => `<option value="">— без преподавателя —</option>` + SCHOOL.teachers.map(t => `<option value="${t.id}" ${t.id === v ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+  let rows = SCHOOL.students;
+  if (ONLY_MINE && ME.role === 'teacher') rows = rows.filter(s => s.teacher === ME.teacher_id);
+  const q = ($('stSearch') && $('stSearch').value || '').toLowerCase();
+  $('tabBody').innerHTML = `<div class="card">
+    <div class="row" style="margin-bottom:10px"><input id="stSearch" placeholder="Поиск по имени или группе" style="flex:1; min-width:200px" value="${esc(q)}" oninput="filterRows()">
+      ${ME.role === 'teacher' ? `<label class="row" style="gap:6px; font-size:14px"><input type="checkbox" ${ONLY_MINE ? 'checked' : ''} onchange="ONLY_MINE=this.checked; studentsTab()" style="height:auto"> Только мои</label>` : ''}</div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Ученик</th><th class="hide-m">Группа</th><th class="hide-m">Преподаватель</th><th>Код</th><th>Очки</th><th>Маршруты</th><th class="hide-m">Точность</th><th class="hide-m">Тесты</th><th>Был</th><th>Внимание</th></tr></thead>
+    <tbody id="stRows">${rows.map(s => `<tr class="click" data-q="${esc((s.name + ' ' + s.group).toLowerCase())}" onclick="openStudent('${s.id}')">
+      <td><b style="color:var(--ink)">${esc(s.name)}</b></td><td class="hide-m">${esc(s.group || '—')}</td><td class="hide-m">${esc(s.teacher_name || '—')}</td>
+      <td><span class="code">${s.code}</span></td><td>${s.points}</td><td>${s.routes}</td><td class="hide-m">${pct(s.route_acc)}</td><td class="hide-m">${s.quizzes} · ${pct(s.quiz_acc)}</td>
+      <td>${when(s.last)}</td><td>${s.flags ? `<span class="flag">${s.flags} пробл.</span>` : s.last ? '<span class="fine">ок</span>' : '<span class="muted">не начал</span>'}</td></tr>`).join('') ||
+      '<tr><td colspan="10" class="muted">Учеников пока нет. Добавьте первого ниже.</td></tr>'}</tbody></table></div></div>
+    <form class="card" onsubmit="addStudent(event)"><h2>Добавить ученика</h2>
+      <div class="muted" style="margin-top:4px">Ученик получит код из 6 символов. Он вводит его в игре в главном меню — после этого вы видите его маршруты, тесты и ошибки.</div>
+      <div class="row" style="margin-top:10px">
+        <label class="field" style="flex:2"><span class="lbl">Имя и фамилия</span><input id="nName" required maxlength="40" placeholder="Например: Анна Петрова"></label>
+        <label class="field"><span class="lbl">Группа</span><input id="nGroup" maxlength="30" placeholder="Например: B-12"></label>
+        <label class="field"><span class="lbl">Преподаватель</span><select id="nTeacher">${tsel(ME.role === 'teacher' ? ME.teacher_id : '')}</select></label>
+        <button class="btn" style="align-self:flex-end">Добавить</button></div><div id="nMsg" class="err"></div></form>`;
+  filterRows();
+}
+function filterRows() { const q = ($('stSearch').value || '').toLowerCase(); document.querySelectorAll('#stRows tr[data-q]').forEach(tr => tr.classList.toggle('hidden', !!q && !tr.dataset.q.includes(q))); }
+async function addStudent(e) {
+  e.preventDefault();
+  try {
+    const r = await api('/api/adm/student', { op: 'add', school: SCHOOL.id, name: $('nName').value, group: $('nGroup').value, teacher: $('nTeacher').value });
+    await openSchool(SCHOOL.id, 'students');
+    $('nMsg').className = 'ok'; $('nMsg').innerHTML = `Ученик добавлен. Код для игры: <span class="code">${r.code}</span> — передайте его ученику.`;
+  } catch (err) { $('nMsg').textContent = err.message; }
+}
+function teachersTab() {
+  $('tabBody').innerHTML = `<div class="card"><table><thead><tr><th>Имя</th><th>Логин</th><th>Учеников</th><th></th></tr></thead><tbody>
+    ${SCHOOL.teachers.map(t => `<tr><td><b style="color:var(--ink)">${esc(t.name)}</b></td><td><span class="code">${esc(t.login)}</span></td>
+      <td>${SCHOOL.students.filter(s => s.teacher === t.id).length}</td>
+      <td style="text-align:right; white-space:nowrap"><button class="btn ghost small" onclick="resetTeacher('${t.id}')">Новый пароль</button>
+      <button class="btn danger small" onclick="delTeacher('${t.id}')">Удалить</button></td></tr>`).join('') ||
+      '<tr><td colspan="4" class="muted">Преподавателей пока нет.</td></tr>'}</tbody></table></div>
+    <form class="card" onsubmit="addTeacher(event)"><h2>Добавить преподавателя</h2>
+      <div class="muted" style="margin-top:4px">Преподаватель входит сюда же, на страницу /admin, и видит учеников своей автошколы.</div>
+      <div class="row" style="margin-top:10px">
+        <label class="field" style="flex:2"><span class="lbl">Имя</span><input id="tName" required maxlength="60"></label>
+        <label class="field"><span class="lbl">Логин</span><input id="tLogin" required maxlength="40" autocomplete="off"></label>
+        <label class="field"><span class="lbl">Пароль (мин. 8)</span><input id="tPw" required minlength="8" autocomplete="new-password"></label>
+        <button class="btn" style="align-self:flex-end">Добавить</button></div><div class="err" id="tErr"></div></form>`;
+}
+async function addTeacher(e) {
+  e.preventDefault();
+  try { await api('/api/adm/teacher', { op: 'add', school: SCHOOL.id, name: $('tName').value, login: $('tLogin').value, password: $('tPw').value }); openSchool(SCHOOL.id, 'teachers'); }
+  catch (err) { $('tErr').textContent = err.message; }
+}
+async function resetTeacher(id) {
+  const name = SCHOOL.teachers.find(t => t.id === id).name;
+  const pw = prompt(`Новый пароль для «${name}» (минимум 8 символов):`); if (!pw) return;
+  try { await api('/api/adm/teacher', { op: 'reset', id, password: pw }); alert('Пароль изменён. Сообщите его преподавателю.'); } catch (err) { alert(err.message); }
+}
+async function delTeacher(id) {
+  const name = SCHOOL.teachers.find(t => t.id === id).name;
+  if (!confirm(`Удалить преподавателя «${name}»? Его ученики останутся в автошколе без преподавателя.`)) return;
+  try { await api('/api/adm/teacher', { op: 'delete', id }); openSchool(SCHOOL.id, 'teachers'); } catch (err) { alert(err.message); }
+}
+async function renameSchool() {
+  const n = prompt('Новое название автошколы:', SCHOOL.name); if (!n) return;
+  try { await api('/api/adm/school', { op: 'rename', id: SCHOOL.id, name: n, city: SCHOOL.city }); openSchool(SCHOOL.id); } catch (err) { alert(err.message); }
+}
+async function delSchool() {
+  if (!confirm(`Удалить автошколу «${SCHOOL.name}»?`)) return;
+  try { await api('/api/adm/school', { op: 'delete', id: SCHOOL.id }); home(); } catch (err) { alert(err.message); }
+}
+
+// ---------- ученик ----------
+async function openStudent(id) {
+  const s = await api('/api/adm/student?id=' + id);
+  const tsel = `<option value="">— без преподавателя —</option>` + SCHOOL.teachers.map(t => `<option value="${t.id}" ${t.id === s.teacher ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+  const routes = s.events.filter(e => e.type === 'route'), quizzes = s.events.filter(e => e.type === 'quiz');
+  const evTxt = e => e.type === 'route' ? `🚗 Маршрут ${esc(e.route || '')} — <b>${e.score}</b> очков, верно ${e.ok} из ${e.ok + e.bad}`
+    : e.type === 'quiz' ? `📝 Тест «${esc({ signs: 'Знаки', mark: 'Разметка', light: 'Светофоры', daily: 'Тренировка дня' }[e.kind] || e.kind)}» — ${e.right} из ${e.total}, <b>${e.score}</b> очков`
+    : `🔁 Работа над ошибками — верно ${e.ok} из ${e.ok + e.bad}`;
+  const evDetail = e => e.type === 'route' && e.mistakes && e.mistakes.length ? `<details><summary>Ошибки (${e.mistakes.length})</summary><div class="m">${e.mistakes.map(m => `• ${esc(m.cat_name)}: ${esc(m.q)}`).join('<br>')}</div></details>`
+    : e.type === 'quiz' && e.wrong && e.wrong.length ? `<div class="m">Ошибся: ${e.wrong.map(esc).join('; ')}</div>` : '';
+  app.innerHTML = `<div class="crumbs">${ME.role === 'admin' ? `<button onclick="home()">Автошколы</button> ›` : ''} <button onclick="openSchool('${SCHOOL.id}')">${esc(SCHOOL.name)}</button> › <span>${esc(s.name)}</span></div>
+    <div class="row"><h1 style="flex:1">${esc(s.name)}</h1><span class="muted">Код для игры:</span><span class="code" style="font-size:18px">${s.code}</span>
+      <button class="btn ghost small" onclick="newCode('${s.id}')">Новый код</button></div>
+    <div class="muted">${esc(s.group ? 'Группа ' + s.group + ' · ' : '')}${esc(s.teacher_name ? 'Преподаватель: ' + s.teacher_name + ' · ' : '')}последнее занятие: ${when(s.last)}</div>
+    <div class="kpis">
+      <div class="kpi"><b>${s.points}</b><span>очков</span></div>
+      <div class="kpi"><b>${s.routes}</b><span>маршрутов</span></div>
+      <div class="kpi"><b>${pct(s.route_acc)}</b><span>верно в маршрутах</span></div>
+      <div class="kpi"><b>${s.quizzes}</b><span>тестов</span></div>
+      <div class="kpi"><b>${pct(s.quiz_acc)}</b><span>верно в тестах</span></div>
+      <div class="kpi"><b>${s.streak}</b><span>дней подряд (рекорд ${s.best_streak})</span></div>
+      <div class="kpi"><b>${s.progress.signs_seen || 0}</b><span>карточек знаков открыто</span></div></div>
+    <div class="two">
+      <div class="card"><h2>Проблемы и что подтянуть</h2><div style="margin-top:10px">
+        ${s.problems.length ? s.problems.map(p => `<div class="prob"><b>${esc(p.txt)}</b>${p.cat && CAT_TIPS[p.cat] ? `<div class="tip">Совет: ${esc(CAT_TIPS[p.cat])}</div>` : ''}</div>`).join('') : '<div class="ok">Явных проблем нет 👍</div>'}</div></div>
+      <div class="card"><h2>Достижения</h2><div class="badges" style="margin-top:10px">
+        ${s.badges.map(b => `<span class="badge ${b.got ? '' : 'off'}" title="${esc(b.txt)}">${b.got ? '🏆 ' : ''}${esc(b.name)}</span>`).join('')}</div>
+        <div class="muted" style="margin-top:8px">Пунктиром — ещё не получены. Наведите, чтобы увидеть условие.</div></div></div>
+    <div class="two">
+      <div class="card"><h2>Повороты и манёвры</h2><div style="margin-top:8px">${s.cats.length ? s.cats.sort((a, b) => a.ok / (a.ok + a.bad) - b.ok / (b.ok + b.bad)).map(c => {
+        const n = c.ok + c.bad, p = Math.round(100 * c.ok / n);
+        return `<div class="stat"><span>${esc(c.name)}</span><div class="bar"><div style="width:${p}%; background:${color(p)}"></div></div><span>${c.ok}/${n}</span></div>`; }).join('') : '<div class="muted">Маршрутов ещё не было.</div>'}</div></div>
+      <div class="card"><h2>Тесты по темам</h2><div style="margin-top:8px">${s.by_kind.length ? s.by_kind.map(k => {
+        const p = k.total ? Math.round(100 * k.right / k.total) : 0;
+        return `<div class="stat"><span>${esc(k.name)} <span class="muted">×${k.count}</span></span><div class="bar"><div style="width:${p}%; background:${color(p)}"></div></div><span>${p}%</span></div>`; }).join('') : '<div class="muted">Тестов ещё не было.</div>'}</div></div></div>
+    <div class="card"><h2>История занятий</h2><div style="margin-top:6px">${s.events.length ? s.events.map(e => `<div class="ev"><div class="d">${dt(e.t)}</div><div>${evTxt(e)}${evDetail(e)}</div></div>`).join('')
+      : '<div class="muted">Пока пусто. Попросите ученика ввести код <span class="code">' + s.code + '</span> в игре (главное меню → «Код ученика автошколы»).</div>'}</div></div>
+    <form class="card" onsubmit="saveStudent(event, '${s.id}')"><h2>Данные ученика</h2>
+      <div class="row" style="margin-top:10px">
+        <label class="field" style="flex:2"><span class="lbl">Имя и фамилия</span><input id="eName" value="${esc(s.name)}" maxlength="40" required></label>
+        <label class="field"><span class="lbl">Группа</span><input id="eGroup" value="${esc(s.group)}" maxlength="30"></label>
+        <label class="field"><span class="lbl">Преподаватель</span><select id="eTeacher">${tsel}</select></label>
+        <button class="btn" style="align-self:flex-end">Сохранить</button>
+        <button type="button" class="btn danger" style="align-self:flex-end" onclick="delStudent('${s.id}')">Удалить ученика</button></div>
+      <div class="err" id="eErr"></div></form>`;
+  window.scrollTo(0, 0);
+}
+async function saveStudent(e, id) {
+  e.preventDefault();
+  try { await api('/api/adm/student', { op: 'update', id, name: $('eName').value, group: $('eGroup').value, teacher: $('eTeacher').value });
+    SCHOOL = await api('/api/adm/school?id=' + SCHOOL.id); openStudent(id); } catch (err) { $('eErr').textContent = err.message; }
+}
+async function newCode(id) {
+  if (!confirm('Выдать новый код? Старый перестанет работать — ученику нужно будет ввести новый.')) return;
+  try { await api('/api/adm/student', { op: 'new_code', id }); openStudent(id); } catch (err) { alert(err.message); }
+}
+async function delStudent(id) {
+  const name = $('eName').value;
+  if (!confirm(`Удалить ученика «${name}» вместе со всей статистикой? Это нельзя отменить.`)) return;
+  try { await api('/api/adm/student', { op: 'delete', id }); openSchool(SCHOOL.id, 'students'); } catch (err) { alert(err.message); }
+}
+
+start().catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+settings_local.json
+cache_audio/
+__pycache__/
+leaderboard.json
+irkutsk_osm.json
+profiles.json
+school.json
+for_friends/*.tar
+docker_golos/engines.py
+seed/*.json

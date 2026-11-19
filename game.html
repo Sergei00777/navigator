@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Штурман 38 · игра-навигатор</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#e1d7c2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://mapgl.2gis.com/api/js/v1"></script>
+<script src="/signs.js"></script>
+<script src="/learn.js"></script>
+<style>
+/* Штурман 38 — тема «Бумажный стол» (по мотивам PostHog / refero) */
+:root {
+  --desk:#e1d7c2; --stone:#e5e7e0; --linen:#eeefe9; --cream:#fdfdf8; --paper:#ffffff;
+  --ink:#23251d; --txt:#4d4f46; --muted:#65675e; --dim:#9ea096;
+  --line:#bfc1b7; --line2:#b3b3af; --gold:#b17816;
+  --blue:#2f80fa; --amber:#eb9d2a; --amber-d:#cd8407; --marigold:#f1a82c; --flame:#f54e00; --moss:#6aa84f;
+  --good:#4f8a35; --good-soft:#e6f0df; --bad:#d64400; --bad-soft:#fde6da; --blue-soft:#e3eefe;
+  --f:"Inter Tight", "Open Runde", Inter, "Segoe UI", sans-serif; --fu:"IBM Plex Sans", Inter, sans-serif; --fm:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ease:.15s ease;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; height:100%; overflow:hidden; background:var(--desk); color:var(--txt);
+  font-family:var(--f); font-size:15px; line-height:1.45; -webkit-tap-highlight-color:transparent; }
+em { font-style:normal; color:var(--gold); text-decoration:underline; text-decoration-thickness:1.5px; text-underline-offset:3px; }
+button { font:inherit; cursor:pointer; color:inherit; transition:background var(--ease), border-color var(--ease), color var(--ease); }
+button:disabled { opacity:.5; cursor:default; }
+input, select, textarea { font:inherit; }
+:focus-visible { outline:2px solid var(--blue); outline-offset:1px; }
+#map { position:fixed; inset:0; z-index:0; background:var(--linen); }
+.leaflet-container { background:var(--linen); font-family:var(--f); }
+#map .leaflet-tile-pane { filter:saturate(.55) sepia(.12) contrast(.97); }
+.leaflet-control-attribution { font-size:10px; background:rgba(253,253,248,.85) !important; color:var(--muted); }
+.leaflet-control-attribution a { color:var(--txt); }
+.hidden { display:none !important; }
+
+/* сегменты = вкладки */
+.mapseg, .seg { display:grid; gap:0; background:var(--linen); border:1px solid var(--line); border-radius:4px; padding:2px; }
+.mapseg { grid-template-columns:repeat(3, minmax(0,1fr)); } .seg { grid-template-columns:1fr 1fr; }
+.mapseg button, .seg button { border:0; background:transparent; border-radius:3px; height:36px; font:500 13px var(--fu); color:var(--muted); }
+.mapseg button:hover:not(.on), .seg button:hover:not(.on) { background:var(--stone); }
+.mapseg button.on, .seg button.on { background:var(--paper); color:var(--blue); box-shadow:inset 0 -2px 0 var(--blue), 0 0 0 1px var(--line); }
+.mapseg button:disabled { opacity:.4; }
+
+/* экраны поверх карты */
+.screen { position:fixed; inset:0; z-index:20; background:var(--desk); overflow-y:auto; }
+.wrap { max-width:460px; margin:0 auto; padding:20px 16px 110px; display:flex; flex-direction:column; gap:14px; }
+.top { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.logo { font-size:19px; font-weight:800; letter-spacing:-.025em; color:var(--ink); }
+.chip { display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 12px; border-radius:4px; background:var(--paper);
+  border:1px solid var(--line); font:500 13px var(--fu); color:var(--ink); }
+.chip:hover, .iconbtn:hover { background:var(--stone); }
+.iconbtn { width:38px; height:38px; border-radius:4px; border:1px solid var(--line); background:var(--paper); color:var(--ink); display:grid; place-items:center; }
+h1 { margin:0; font-size:30px; line-height:1.2; font-weight:800; letter-spacing:-.025em; color:var(--ink); }
+h2 { margin:0; font-size:21px; line-height:1.3; font-weight:700; letter-spacing:-.025em; color:var(--ink); }
+.card { background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:16px; }
+.dark { background:var(--cream); color:var(--ink); }
+.lbl { font:500 12px var(--fu); letter-spacing:.02em; color:var(--muted); }
+.dark .lbl { color:var(--muted); }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field input, .sel, .form textarea { border-radius:4px; border:1px solid var(--line); background:var(--cream);
+  padding:0 10px; font-weight:500; font-size:15px; color:var(--ink); width:100%; transition:border-color var(--ease); }
+.field input, .sel { height:42px; }
+.field input::placeholder, textarea::placeholder { color:var(--dim); }
+.field input:focus, .sel:focus, .form textarea:focus { outline:0; border-color:var(--blue); background:var(--paper); box-shadow:0 0 0 1px var(--blue); }
+.routeform { display:flex; gap:12px; }
+.rail { display:flex; flex-direction:column; align-items:center; padding:24px 0 16px; }
+.rail .a { width:12px; height:12px; border-radius:50%; border:3px solid var(--ink); }
+.rail .l { flex:1; width:2px; background:repeating-linear-gradient(var(--line) 0 4px, transparent 4px 8px); }
+.rail .b { width:12px; height:12px; border-radius:2px; background:var(--amber); border:1.5px solid var(--ink); }
+.results { display:flex; flex-direction:column; margin-top:4px; }
+.results button { text-align:left; border:0; background:none; padding:8px 10px; border-radius:4px; font-size:14px; font-weight:500; color:var(--ink); }
+.results button:hover { background:var(--stone); }
+.results .msg { font-size:13px; color:var(--muted); padding:6px 10px; }
+
+/* кнопки */
+.btn { height:48px; border-radius:4px; border:0; background:var(--amber); color:var(--ink); font:600 15px var(--fu);
+  display:flex; align-items:center; justify-content:center; gap:10px; width:100%; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12); }
+.btn:hover:not(:disabled) { background:var(--amber-d); }
+.btn svg[stroke="#fff"] { stroke:currentColor; } .btn svg[fill="#fff"] { fill:currentColor; }
+.btn.ink, .btn.ghost { background:transparent; color:var(--gold); border:1.5px solid var(--gold); box-shadow:none; }
+.btn.ink:hover:not(:disabled), .btn.ghost:hover:not(:disabled) { background:#f6ecd8; }
+.chips, .minirow { display:flex; flex-wrap:wrap; gap:8px; }
+.preset, .minibtn { border:1px solid var(--line); background:var(--cream); color:var(--ink); border-radius:4px; padding:7px 11px; font:500 13px var(--fu); }
+.minibtn { height:36px; padding:0 12px; }
+.preset:hover, .minibtn:hover { background:var(--stone); border-color:var(--line2); }
+.grid2 { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+.bar { height:8px; border-radius:2px; background:var(--stone); border:1px solid var(--line); overflow:hidden; }
+.bar > div { height:100%; background:var(--amber); transition:width .6s; }
+.bar.light { background:var(--stone); }
+.board-row { display:flex; justify-content:space-between; font-size:14px; font-weight:500; padding:3px 0; color:var(--txt); }
+.board-row.me { color:var(--blue); font-weight:700; }
+.note, .tip { background:var(--cream); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:4px; padding:10px 12px;
+  display:flex; gap:10px; align-items:center; font-size:14px; font-weight:500; line-height:1.45; color:var(--txt); }
+.tip { display:block; }
+.err { color:var(--bad); font-size:13px; font-weight:600; min-height:18px; }
+
+/* листы поверх карты = «окна» */
+.sheet { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:15; width:min(460px, calc(100% - 20px));
+  background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:16px; box-shadow:rgba(0,0,0,.25) 0 25px 50px -12px;
+  display:flex; flex-direction:column; gap:12px; max-height:calc(100% - 120px); overflow-y:auto; }
+.stats { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); text-align:center; border:1px solid var(--line); border-radius:4px; }
+.stats > div { padding:8px 2px; border-left:1px solid var(--line); } .stats > div:first-child { border-left:0; }
+.stats b { display:block; font-size:19px; font-weight:700; color:var(--ink); letter-spacing:-.025em; }
+.stats span { font:500 11px var(--fu); color:var(--muted); }
+details summary { cursor:pointer; font:500 13px var(--fu); color:var(--muted); list-style:none; }
+details summary:hover { color:var(--ink); }
+details summary::-webkit-details-marker { display:none; }
+.steps { list-style:none; margin:8px 0 0; padding:0; }
+.steps li { position:relative; padding:8px 4px 8px 34px; font-size:14px; line-height:1.45; border-bottom:1px solid var(--line); color:var(--txt); }
+.steps li:last-child { border:0; }
+.steps .n { position:absolute; left:2px; top:8px; width:22px; height:22px; border-radius:4px; background:var(--linen); border:1px solid var(--line);
+  font:500 11px var(--fm); display:grid; place-items:center; color:var(--ink); }
+.steps li.hard .n { background:var(--bad-soft); border-color:var(--bad); color:var(--bad); }
+
+/* HUD поездки */
+#hud { position:fixed; left:50%; transform:translateX(-50%); top:10px; z-index:15; width:min(460px, calc(100% - 20px)); display:flex; flex-direction:column; gap:8px; }
+.hudrow { display:flex; gap:8px; align-items:center; }
+.prog, .score, .pill, #mapTools button, .toolchip { background:var(--paper); border:1px solid var(--line); }
+.prog { flex:1; height:40px; border-radius:4px; display:flex; align-items:center; gap:10px; padding:0 12px; }
+.prog .t { font:500 12px var(--fm); color:var(--muted); white-space:nowrap; }
+.dots { flex:1; display:flex; gap:3px; }
+.dots i { flex:1; height:8px; border-radius:2px; background:var(--stone); border:1px solid var(--line); }
+.dots i.ok { background:var(--moss); border-color:var(--moss); } .dots i.bad { background:var(--flame); border-color:var(--flame); } .dots i.cur { background:var(--amber); border-color:var(--gold); }
+.score { height:40px; border-radius:4px; color:var(--ink); display:flex; align-items:center; padding:0 12px; font:700 17px var(--f); min-width:56px; justify-content:center; }
+.pill { align-self:flex-start; border-radius:4px; padding:7px 12px; font-size:14px; font-weight:500; color:var(--txt); display:flex; align-items:center; gap:8px; }
+.pill.good { border-left:3px solid var(--moss); } .pill.bad { border-left:3px solid var(--flame); }
+.pill b { color:var(--ink); } .pill.next b { color:var(--blue); }
+.speedbtn { flex-shrink:0; height:36px; min-width:56px; border-radius:4px; border:0; background:var(--amber); color:var(--ink); font:600 14px var(--fm); padding:0 12px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12); }
+.speedbtn:hover { background:var(--amber-d); }
+
+#ask .head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.timer { width:52px; height:52px; border-radius:50%; flex-shrink:0; display:grid; place-items:center;
+  background:conic-gradient(var(--amber) var(--p,100%), var(--stone) 0); border:1px solid var(--line); }
+.timer span { width:40px; height:40px; border-radius:50%; background:var(--paper); display:grid; place-items:center; font:600 16px var(--fm); color:var(--ink); }
+.choices { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; }
+.choices.c4 { grid-template-columns:repeat(4, minmax(0,1fr)); }
+.choice { height:82px; border-radius:4px; border:1px solid var(--line); background:var(--cream); color:var(--ink); font:600 14px var(--fu);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+.choice svg { stroke:currentColor; }
+.choice:hover:not(:disabled) { background:var(--linen); border-color:var(--ink); }
+.choice.right { background:var(--moss); border-color:var(--moss); color:#fff; opacity:1; }
+.choice.wrong { background:var(--flame); border-color:var(--flame); color:#fff; opacity:1; }
+.linkbtn { border:0; background:none; color:var(--txt); font:500 13px var(--fu); height:38px; display:flex; align-items:center; justify-content:center; gap:8px;
+  text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+.linkbtn:hover { color:var(--ink); text-decoration-color:var(--ink); }
+
+/* результат */
+.big { font-size:56px; font-weight:800; line-height:1; letter-spacing:-.04em; color:var(--ink); }
+.stars { display:flex; gap:6px; }
+.lines .board-row { font-size:15px; padding:7px 0; border-bottom:1px solid var(--line); }
+.lines .board-row:last-child { border:0; }
+.levelup { background:#fdf1dc; border:1.5px solid var(--gold); color:var(--ink); border-radius:4px; padding:10px 12px; font-weight:600; font-size:15px; }
+
+/* маркеры */
+.carico { width:30px; height:30px; }
+.carico svg { width:30px; height:30px; transition:transform .15s linear; filter:drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
+.ring { width:44px; height:44px; border-radius:50%; border:2px dashed var(--blue); background:rgba(47,128,250,.12); }
+.sig { width:11px; height:11px; border-radius:50%; background:var(--marigold); border:2px solid var(--ink); }
+.flag { width:16px; height:16px; border-radius:3px; background:var(--amber); border:2px solid var(--ink); }
+.poi { width:12px; height:12px; border-radius:50%; background:var(--paper); border:2px solid var(--ink); }
+.poi.big { background:var(--flame); }
+.startdot { width:16px; height:16px; border-radius:50%; background:var(--paper); border:4px solid var(--ink); }
+.leaflet-tooltip.poitip, .gltip { background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:4px; padding:2px 7px;
+  font:500 12px var(--fu); box-shadow:none; white-space:nowrap; }
+.leaflet-tooltip.poitip:before { display:none; }
+.gltip { position:absolute; left:100%; top:50%; transform:translateY(-50%); margin-left:6px; pointer-events:none; }
+#mapTools { position:fixed; right:10px; top:112px; z-index:16; display:flex; flex-direction:column; gap:6px; }
+#mapTools button, .toolchip { display:flex; align-items:center; gap:6px; color:var(--ink); border-radius:4px; font:500 12px var(--fu); }
+#mapTools button { width:56px; height:52px; flex-direction:column; justify-content:center; gap:3px; }
+#mapTools button:hover, .toolchip:hover { background:var(--stone); }
+#mapTools button.on, .toolchip.on { background:var(--blue-soft); border-color:var(--blue); color:var(--blue); }
+.toolchip { height:34px; padding:0 12px; }
+
+/* списки */
+.rowitem { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+.rowitem:last-child { border-bottom:0; }
+.rowitem .main { flex:1; min-width:0; text-align:left; border:0; background:none; padding:0; }
+.rowitem .t { font-weight:600; font-size:15px; display:block; color:var(--ink); }
+.rowitem .s { font-size:13px; color:var(--muted); display:block; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rowitem .x { width:32px; height:32px; border-radius:4px; border:1px solid var(--line); background:var(--cream); color:var(--muted); flex-shrink:0; }
+.rowitem .x:hover { color:var(--bad); border-color:var(--bad); }
+.cardhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.remind { background:#fdf1dc; border:1px solid var(--gold); color:var(--ink); border-radius:4px; padding:10px 12px; width:100%;
+  text-align:left; font-size:14px; font-weight:500; line-height:1.4; display:flex; gap:10px; align-items:center; margin-bottom:6px; }
+.remind:hover { background:#fae6c2; }
+.stat { display:grid; grid-template-columns:1fr 70px 40px; gap:8px; align-items:center; font-size:14px; font-weight:500; padding:5px 0; color:var(--txt); }
+.stat span:last-child { font-family:var(--fm); font-size:12px; }
+.stat .bar { height:8px; }
+.stat.weak { color:var(--bad); }
+.form { display:flex; flex-direction:column; gap:8px; background:var(--linen); border:1px solid var(--line); border-radius:4px; padding:12px; }
+.form textarea { min-height:70px; padding:10px 12px; font-size:14px; resize:vertical; }
+.choices.lanes { display:flex; justify-content:center; gap:0; background:#4d4f46; border:2px solid var(--ink); border-radius:4px; padding:6px; }
+.choices.lanes .choice { flex:1; max-width:84px; height:92px; background:transparent; color:#fff; border:0; border-left:2px dashed #fdfdf8; border-radius:2px; }
+.choices.lanes .choice:first-child { border-left:0; }
+.choices.lanes .choice:hover:not(:disabled) { background:rgba(255,255,255,.1); }
+.choices.lanes .choice.right { background:var(--moss); }
+.choices.lanes .choice.wrong { background:var(--flame); }
+#drillText { font-size:16px; font-weight:500; line-height:1.5; color:var(--txt); }
+.ok-t, b.ok-t { color:var(--good); } .bad-t, b.bad-t { color:var(--bad); } .acc-t { color:var(--gold); }
+
+
+/* раздел «Дорожные знаки» */
+.signcard { display:flex; flex-direction:column; gap:10px; text-align:left; cursor:pointer; width:100%; font:inherit; color:inherit; }
+.signcard:hover { background:var(--cream); }
+.signcard .strip { display:flex; gap:6px; flex-wrap:wrap; }
+.signcard .row { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.signcard .t { font-size:19px; font-weight:700; letter-spacing:-.025em; color:var(--ink); }
+.signcard .s { font-size:14px; color:var(--muted); }
+.signcard .go { font:600 14px var(--fu); color:var(--gold); white-space:nowrap; }
+.sgroup { display:flex; flex-direction:column; gap:12px; }
+.sghead { display:flex; gap:12px; align-items:flex-start; }
+.sghead svg { flex-shrink:0; margin-top:2px; }
+.sghead h3 { margin:0 0 3px; font-size:18px; font-weight:700; letter-spacing:-.025em; color:var(--ink); }
+.sgcount { font:500 12px var(--fm); color:var(--muted); margin-left:4px; }
+.sgrule { font-size:14px; line-height:1.45; color:var(--txt); }
+.sgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; }
+.stile { position:relative; border:1px solid var(--line); background:var(--cream); border-radius:4px; padding:10px 6px 8px;
+  display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; }
+.stile:hover { background:var(--linen); border-color:var(--ink); }
+.stile .sn { font:500 11px var(--fm); color:var(--muted); }
+.stile .st { font:500 12px/1.25 var(--fu); color:var(--ink); }
+.stile.seen::after { content:"✓"; position:absolute; top:4px; right:6px; font-size:12px; font-weight:700; color:var(--moss); }
+.sdpic { display:grid; place-items:center; padding:18px 0 6px; }
+.sdblock { border-top:1px solid var(--line); padding-top:10px; }
+.sdblock p { margin:4px 0 0; font-size:16px; line-height:1.5; color:var(--ink); }
+.sdblock.trap p { color:var(--bad); }
+.sdmemo { background:#fdf1dc; border:1.5px solid var(--gold); border-radius:4px; padding:10px 12px; font-size:16px; font-weight:600; color:var(--ink); line-height:1.4; }
+.sdnav { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; }
+.sdnav span { font:500 12px var(--fm); color:var(--muted); }
+.qopt { width:100%; text-align:left; border:1px solid var(--line); background:var(--cream); border-radius:4px; padding:13px 14px; font:500 15px var(--f); color:var(--ink); }
+.qopt:hover:not(:disabled) { background:var(--linen); border-color:var(--ink); }
+.qopt.right { background:var(--moss); border-color:var(--moss); color:#fff; }
+.qopt.wrong { background:var(--flame); border-color:var(--flame); color:#fff; }
+#sdStop.talking { background:#fde6da; border-color:var(--flame); color:var(--flame); }
+.qopt:disabled { cursor:default; opacity:1; }
+#sqFeed { font-size:15px; line-height:1.5; }
+
+/* учёба */
+.learncard { display:flex; flex-direction:column; gap:10px; }
+.daily { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; text-align:left; border:1.5px solid var(--gold); background:#fdf1dc; border-radius:4px; padding:12px; }
+.daily:hover { background:#fae6c2; }
+.daily .dl { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.daily b { font-size:17px; color:var(--ink); letter-spacing:-.02em; }
+.daily .dl span { font-size:13px; color:var(--txt); }
+.daily .dgo { flex-shrink:0; background:var(--amber); color:var(--ink); font:600 13px var(--fu); padding:8px 10px; border-radius:4px; box-shadow:inset 0 -2px 0 rgba(0,0,0,.12); }
+.lgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ltile { display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left; border:1px solid var(--line); background:var(--cream); border-radius:4px; padding:10px; min-height:112px; }
+.ltile:hover { background:var(--linen); border-color:var(--ink); }
+.ltile b { font-size:14px; line-height:1.25; color:var(--ink); }
+.ltile .ls { font-size:12px; color:var(--muted); }
+.ltile:last-child:nth-child(odd) { grid-column:1 / -1; min-height:0; }
+.gdstep { display:flex; gap:12px; align-items:flex-start; }
+.gdnum { flex-shrink:0; width:30px; height:30px; border-radius:4px; background:var(--amber); color:var(--ink); font:700 15px var(--fu); display:grid; place-items:center; }
+.gdstep h3 { margin:2px 0 4px; font-size:17px; letter-spacing:-.02em; color:var(--ink); }
+.gdstep p { margin:0; font-size:15px; line-height:1.5; color:var(--txt); }
+a.btn { text-decoration:none; }
+@media (max-width:380px) { h1 { font-size:26px; } .choice { height:74px; } }
+.leaflet-control-attribution a[href*="leafletjs"], .leaflet-attribution-flag { display:none !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="mapTools" class="hidden" aria-label="Слои карты 2ГИС">
+  <button data-tool="traffic" onclick="toggleTool('traffic')" aria-label="Пробки">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="20" rx="3"></rect><circle cx="12" cy="7" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="17" r="1.5"></circle></svg>Пробки</button>
+  <button data-tool="immersive" onclick="toggleTool('immersive')" aria-label="3D-режим">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18 M5 21V9l5-3v15 M10 21V4l9 4v13 M13 10h3 M13 14h3"></path></svg>3D</button>
+</div>
+
+<!-- ============ МЕНЮ ============ -->
+<section id="scrMenu" class="screen">
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">Штурман <em>38</em></div>
+      <div style="display:flex; gap:8px">
+        <span class="chip" id="rankChip">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eb9d2a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z M17 6h3v2a3 3 0 0 1-3 3 M7 6H4v2a3 3 0 0 0 3 3"></path></svg>
+          <span id="rankTxt">—</span>
+        </span>
+        <button class="iconbtn" aria-label="Настройки голоса" onclick="show('scrSettings')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <h1>Запомни <em>маршрут</em> —<br>поезжай спокойно</h1>
+
+    <div class="card">
+      <div class="routeform">
+        <div class="rail"><div class="a"></div><div class="l"></div><div class="b"></div></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px; min-width:0">
+          <div class="field"><label class="lbl" for="qFrom">Откуда</label>
+            <input id="qFrom" placeholder="Улица, дом или место" autocomplete="off"></div>
+          <div class="results" id="rFrom"></div>
+          <div class="field"><label class="lbl" for="qTo">Куда</label>
+            <input id="qTo" placeholder="Например: аэропорт" autocomplete="off"></div>
+          <div class="results" id="rTo"></div>
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <button class="btn" id="btnBuild" onclick="buildRoute(false)">Построить маршрут
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </button>
+      <div class="err" id="menuErr"></div>
+      <div class="lbl" style="margin:4px 0 8px">Карта</div>
+      <div class="mapseg" role="group" aria-label="Выбор карты">
+        <button data-map="osm" onclick="setMapKind('osm')">Обычная</button>
+        <button data-map="dgis" onclick="setMapKind('dgis')">2ГИС</button>
+        <button data-map="gl" onclick="setMapKind('gl')">2ГИС 3D</button>
+      </div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px" id="mapNote"></div>
+      <div class="minirow hidden" id="toolChips" style="margin-top:8px">
+        <button class="toolchip" data-tool="traffic" onclick="toggleTool('traffic')">Пробки</button>
+        <button class="toolchip" data-tool="immersive" onclick="toggleTool('immersive')">3D-режим</button>
+      </div>
+      <div class="lbl" style="margin:14px 0 8px">Готовые маршруты</div>
+      <div class="chips" id="presets"></div>
+    </div>
+
+    <div class="card learncard">
+      <div class="cardhead"><span class="lbl">Учёба для новичка</span></div>
+      <button class="daily" onclick="Learn.quiz('daily')">
+        <span class="dl"><b>Тренировка дня</b><span id="dailyTxt">5 вопросов в день: знаки, разметка, светофоры</span></span>
+        <span class="dgo" id="dailyBtn">Начать · +20</span>
+      </button>
+      <div class="lgrid">
+        <button class="ltile" onclick="Signs.openList()"><span id="ic_signs"></span><b>Дорожные знаки</b><span class="ls" id="signMenuTxt">Все знаки ПДД и тест</span></button>
+        <button class="ltile" onclick="Learn.topic('mark')"><span id="ic_mark"></span><b>Разметка</b><span class="ls">Линии и стрелки</span></button>
+        <button class="ltile" onclick="Learn.topic('light')"><span id="ic_light"></span><b>Светофоры и регулировщик</b><span class="ls">Сигналы и жесты</span></button>
+        <button class="ltile" onclick="Learn.guide('dtp')"><span id="ic_dtp"></span><b>Если случилось ДТП</b><span class="ls">Памятка по шагам</span></button>
+        <button class="ltile" onclick="Learn.guide('winter')"><span id="ic_winter"></span><b>Зима в Иркутске</b><span class="ls">Лёд, туман, мороз</span></button>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card dark" style="display:flex; flex-direction:column; gap:8px">
+        <span class="lbl">Уровень</span>
+        <span style="font-size:30px; font-weight:800; line-height:1" id="lvlNum">1</span>
+        <span style="font-size:13px; font-weight:700; font-style:italic; color:#b17816" id="lvlName">Новичок</span>
+        <div class="bar"><div id="lvlBar" style="width:0%"></div></div>
+        <span style="font-size:11px; color:#65675e" id="lvlTxt">0 / 200 очков</span>
+      </div>
+      <div class="card" style="display:flex; flex-direction:column; gap:6px">
+        <span class="lbl">Рейтинг</span>
+        <div id="boardMini"><div class="board-row"><span>Пока никого</span></div></div>
+        <button class="linkbtn" style="height:28px; justify-content:flex-start; padding:0" onclick="openBoard()">Весь рейтинг →</button>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <div class="field"><label class="lbl" for="playerName">Ваше имя в рейтинге</label>
+        <input id="playerName" maxlength="24" placeholder="Игрок"></div>
+      <div id="stuBox"></div>
+    </div>
+
+    <div class="card" id="myCard">
+      <div class="cardhead"><span class="lbl">Мои маршруты</span></div>
+      <button class="remind hidden" id="remind"></button>
+      <div id="myList"></div>
+    </div>
+
+    <div class="card" id="spotCard">
+      <div class="cardhead"><span class="lbl">Опасные места <em style="text-transform:none">Иркутска</em></span></div>
+      <div id="spotList"></div>
+    </div>
+
+    <div class="card hidden" id="errCard">
+      <div class="cardhead"><span class="lbl">Работа над ошибками</span></div>
+      <div id="errStats"></div>
+      <div class="tip" id="errTip" style="margin-top:8px"></div>
+      <div class="minirow" style="margin-top:10px" id="errBtns"></div>
+    </div>
+
+    <button class="note hidden" id="osmNote" style="border:0; text-align:left; cursor:pointer" onclick="show('scrSettings')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eb9d2a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><rect x="8" y="2" width="8" height="20" rx="3"></rect><circle cx="12" cy="7" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="17" r="1.5"></circle></svg>
+      <span id="osmNoteTxt">Светофоры Иркутска не загружены — штурман говорит без них. <em>Загрузить →</em></span>
+    </button>
+    <div class="note">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eb9d2a" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"></path></svg>
+      <span>Как играть: постройте маршрут, посмотрите показ — <em>+20 очков</em>, потом проедьте сами. Перед поворотом выберите полосу, на перекрёстке — куда ехать.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ РЕЙТИНГ ============ -->
+<section id="scrBoard" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2>Рейтинг <em>Иркутска</em></h2>
+      <button class="iconbtn" aria-label="Закрыть" onclick="show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card lines" id="boardFull"></div>
+    <div style="font-size:12px; color:var(--muted)">Рейтинг хранится на этом компьютере — в нём все, кто играл здесь.</div>
+  </div>
+</section>
+
+<!-- ============ НАСТРОЙКИ ============ -->
+<section id="scrSettings" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2>Голос <em>штурмана</em></h2>
+      <button class="iconbtn" aria-label="Закрыть" onclick="show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <div id="vInfo" style="font-size:13px; font-weight:600; line-height:1.4"></div>
+      <div id="keyBox" class="hidden" style="display:flex; flex-direction:column; gap:8px">
+        <div class="field"><label class="lbl" for="yaKey">API-ключ Яндекса</label><input id="yaKey" type="password" placeholder="AQVN…"></div>
+        <button class="btn ink" onclick="saveKey()">Сохранить ключ</button>
+      </div>
+      <div class="field"><label class="lbl" for="vVoice">Голос</label><select id="vVoice" class="sel" onchange="fillRoles(); saveVoice()"></select></div>
+      <div class="field"><label class="lbl" for="vRole">Манера</label><select id="vRole" class="sel" onchange="saveVoice()"></select></div>
+      <div class="field"><label class="lbl" for="vSpeed">Скорость речи</label>
+        <select id="vSpeed" class="sel" onchange="saveVoice()"><option value="0.85">Медленнее</option><option value="0.95">Спокойно</option><option value="1">Обычно</option><option value="1.1">Быстрее</option></select></div>
+      <button class="btn ghost" onclick="speak('Здравствуйте! Я ваш штурман. Не спешите, маршрут мы пройдём вместе.')">▶ Послушать голос</button>
+    </div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <div class="field"><label class="lbl" for="carSpeed">Скорость машинки</label>
+        <select id="carSpeed" class="sel" onchange="setCarSpeed(this.value)"><option value="1" selected>×1 — обычно</option><option value="1.5">×1,5</option><option value="2">×2</option><option value="3">×3 — быстро</option></select></div>
+    </div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <span class="lbl">Маршруты и поиск · 2ГИС</span>
+      <div id="dgInfo" style="font-size:13px; font-weight:600; line-height:1.4">Проверяю…</div>
+      <div class="field"><label class="lbl" for="dgKey">Ключ API 2ГИС</label><input id="dgKey" type="password" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
+      <button class="btn ink" onclick="saveDgis()">Сохранить ключ 2ГИС</button>
+      <div style="font-size:12px; color:var(--muted); line-height:1.4">С ключом маршруты и поиск адресов идут через 2ГИС. Если 2ГИС не ответит — игра сама перейдёт на запасной сервис.</div>
+    </div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <span class="lbl">Светофоры и ориентиры Иркутска</span>
+      <div id="osmInfo" style="font-size:13px; font-weight:600; line-height:1.4">Проверяю…</div>
+      <button class="btn ink" id="btnOsm" onclick="downloadOsm()">Загрузить светофоры и ориентиры</button>
+      <div style="font-size:12px; color:var(--muted); line-height:1.4">Скачиваются один раз и хранятся на компьютере: светофоры, пешеходные переходы, школы, лежачие полицейские, мосты, храмы, театры, памятники, торговые центры, вокзалы, парки, заправки. Тогда штурман говорит «на втором светофоре налево, ориентир — драмтеатр».</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ПРОСМОТР МАРШРУТА ============ -->
+<div id="preview" class="sheet hidden">
+  <div class="top">
+    <div><h2 id="pvTitle">Маршрут</h2><span class="lbl" id="pvSrc" style="display:block; margin-top:3px"></span></div>
+    <button class="iconbtn" aria-label="Назад в меню" onclick="toMenu()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+  </div>
+  <div class="stats">
+    <div><b id="pvDist">–</b><span>км</span></div><div><b id="pvTime">–</b><span>минут</span></div>
+    <div><b id="pvMan">–</b><span>манёвров</span></div><div><b id="pvSig">–</b><span>светофоров</span></div>
+  </div>
+  <div class="note" style="padding:10px 12px">
+    <span><b>1.</b> Смотрите, как машинка проезжает маршрут, и слушайте штурмана. <b>2.</b> Потом ведёте сами и выбираете повороты.</span>
+  </div>
+  <button class="btn" onclick="startDrive(true)">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"></path></svg>
+    Показать маршрут · +20</button>
+  <button class="btn ghost" onclick="startDrive(false)">Сразу ехать самому</button>
+  <div class="tip hidden" id="pvSpotTip"></div>
+  <div class="minirow">
+    <button class="minibtn" onclick="openForm('route')">★ В мои маршруты</button>
+    <button class="minibtn" onclick="openForm('spot')">⚠ Сделать опасным местом</button>
+  </div>
+  <div class="form hidden" id="pvForm">
+    <div class="field"><label class="lbl" for="fTitle" id="fTitleLbl">Название</label><input id="fTitle" maxlength="60"></div>
+    <div class="field hidden" id="fTipBox"><label class="lbl" for="fTip">Совет ученику</label>
+      <textarea id="fTip" maxlength="400" placeholder="Например: перед мостом займите правую полосу, на мосту не перестраивайтесь"></textarea></div>
+    <div class="minirow"><button class="btn ink" style="height:44px; flex:1" onclick="saveForm()">Сохранить</button>
+      <button class="minibtn" onclick="$('pvForm').classList.add('hidden')">Отмена</button></div>
+    <div style="font-size:12px; color:var(--muted)" id="fMsg"></div>
+  </div>
+  <details><summary>Показать маршрут по шагам ▾</summary><ul class="steps" id="steps"></ul></details>
+  <div class="err" id="pvWarn"></div>
+</div>
+
+<!-- ============ ПОСЛЕ ПОКАЗА ============ -->
+<div id="demoEnd" class="sheet hidden">
+  <h2>Запомнили <em>маршрут?</em></h2>
+  <div style="font-size:14px; line-height:1.45; color:var(--muted); font-weight:500">Теперь машину ведёте вы. Дорога будет видна только до ближайшего перекрёстка — на нём выберите, куда ехать.</div>
+  <button class="btn" onclick="startDrive(false)">Поехать самому
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+  <button class="btn ghost" onclick="startDrive(true)">↻ Показать ещё раз</button>
+  <button class="linkbtn" onclick="toMenu()">В меню</button>
+</div>
+
+<!-- ============ ПОЕЗДКА ============ -->
+<div id="hud" class="hidden">
+  <div class="hudrow">
+    <button class="iconbtn" aria-label="Завершить маршрут" title="Завершить маршрут" onclick="toMenu()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    <button class="iconbtn" id="btnPause" aria-label="Пауза" onclick="togglePause()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h3v14H7zM14 5h3v14h-3z"></path></svg></button>
+    <div class="prog"><span class="t" id="hudCount">1 из 6</span><div class="dots" id="dots"></div></div>
+    <div class="score" id="hudScore">0</div>
+  </div>
+  <div class="hudrow" style="justify-content:space-between; align-items:flex-start">
+    <div class="pill next" id="hudNext"></div>
+    <button class="speedbtn" id="btnSpeed" aria-label="Скорость машинки" onclick="cycleSpeed()">×1</button>
+  </div>
+  <div class="pill hidden" id="hudToast"></div>
+</div>
+
+<div id="ask" class="sheet hidden">
+  <div class="head">
+    <div><h2 id="askTitle">Куда <em>поворачиваем?</em></h2>
+      <div style="font-size:13px; color:var(--muted); font-weight:500; margin-top:3px" id="askSub">Вспомните, что говорил штурман</div></div>
+    <div class="timer" id="timer"><span id="timerTxt">10</span></div>
+  </div>
+  <div class="choices" id="choices"></div>
+  <button class="linkbtn" id="btnHint" onclick="useHint()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"></path></svg>
+    Подсказка голосом · −20 очков</button>
+</div>
+
+<!-- ============ РАБОТА НАД ОШИБКАМИ ============ -->
+<div id="drill" class="sheet hidden">
+  <div class="top">
+    <div><span class="lbl" id="drillHead">Работа над ошибками</span><h2 id="drillTitle" style="margin-top:4px"></h2></div>
+    <button class="iconbtn" aria-label="Закончить тренировку" onclick="endDrill(true)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+  </div>
+  <div style="font-size:13px; color:var(--muted); font-weight:600" id="drillRoute"></div>
+  <div class="choices" id="drillChoices"></div>
+  <div id="drillText" class="hidden"></div>
+  <button class="btn hidden" id="drillNext" onclick="drillNext()">Дальше</button>
+</div>
+
+<!-- ============ РЕЗУЛЬТАТ ============ -->
+<section id="scrResult" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><div class="logo">Штурман <em>38</em></div></div>
+    <div style="display:flex; flex-direction:column; gap:6px">
+      <span class="lbl">Вы на месте</span>
+      <div class="big" id="resScore">0</div>
+      <div class="stars" id="resStars"></div>
+      <div style="font-size:15px; font-weight:600" id="resVerdict"></div>
+    </div>
+    <div class="card lines" id="resLines"></div>
+    <div id="resLevelUp" class="levelup hidden"></div>
+    <div class="card dark" style="display:flex; flex-direction:column; gap:8px">
+      <div style="display:flex; justify-content:space-between"><span class="lbl">Уровень <b id="resLvl" style="color:#23251d">1</b></span><span class="lbl" id="resRank"></span></div>
+      <div style="font-size:15px; font-weight:700; font-style:italic; color:#b17816" id="resLvlName"></div>
+      <div class="bar"><div id="resBar" style="width:0%"></div></div>
+      <span style="font-size:11px; color:#65675e" id="resLvlTxt"></span>
+    </div>
+    <button class="btn" onclick="again()">↻ Ещё раз этот маршрут</button>
+    <button class="btn ghost" onclick="toMenu()">Новый маршрут</button>
+  </div>
+</section>
+
+<!-- ============ ДОРОЖНЫЕ ЗНАКИ ============ -->
+<section id="scrSigns" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2>Дорожные <em>знаки</em></h2>
+      <button class="iconbtn" aria-label="Закрыть" onclick="show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <div class="seg" role="group" aria-label="Какие знаки показать">
+        <button id="signModeTop" onclick="Signs.setMode('top')">Главные</button>
+        <button id="signModeAll" onclick="Signs.setMode('all')">Все знаки</button>
+      </div>
+      <div style="font-size:15px; line-height:1.5">«Главные» — знаки, которые новичок видит в городе каждый день. «Все знаки» — полный список ПДД. Нажмите на знак — расскажем, что он значит и что делать.</div>
+      <div class="bar light"><div id="signBar" style="width:0%"></div></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+        <span class="lbl" id="signProg">Изучено 0 из 40</span>
+      </div>
+      <button class="btn" onclick="Signs.quiz()">Проверить себя · 10 вопросов</button>
+    </div>
+    <div id="signGroups" style="display:flex; flex-direction:column; gap:14px"></div>
+  </div>
+</section>
+
+<section id="scrSign" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><button class="chip" onclick="Signs.back()">← К списку знаков</button>
+      <button class="iconbtn" aria-label="Закрыть" onclick="Signs.stop(); show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card" style="display:flex; flex-direction:column; gap:12px">
+      <div class="sdpic" id="sdPic"></div>
+      <div><div class="lbl" id="sdNum"></div><h2 id="sdName" style="margin-top:4px"></h2></div>
+      <div class="grid2">
+        <button class="btn ghost" onclick="Signs.listen()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"></path></svg>Послушать</button>
+        <button class="btn ghost" id="sdStop" onclick="Signs.stop()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>Стоп</button>
+      </div>
+      <div class="sdblock"><div class="lbl">Что значит</div><p id="sdWhat"></p></div>
+      <div class="sdblock"><div class="lbl">Что делать</div><p id="sdTodo"></p></div>
+      <div class="sdblock trap"><div class="lbl">Ошибка новичка</div><p id="sdTrap"></p></div>
+      <div class="sdmemo">💡 <span id="sdMemo"></span></div>
+    </div>
+    <div class="sdnav">
+      <button class="btn ghost" onclick="Signs.prev()">← Назад</button>
+      <span id="sdPos"></span>
+      <button class="btn" onclick="Signs.next()">Дальше →</button>
+    </div>
+  </div>
+</section>
+
+<section id="scrSignQuiz" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2>Тест по <em>знакам</em></h2>
+      <button class="iconbtn" aria-label="Выйти из теста" onclick="stopSpeech(); Signs.openList()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div id="sqBody" style="display:flex; flex-direction:column; gap:12px">
+      <div class="hudrow"><div class="prog"><span class="t" id="sqPos"></span><div class="dots" id="sqDots"></div></div><div class="score" id="sqScore">0</div></div>
+      <div class="card" style="display:flex; flex-direction:column; gap:10px">
+        <div class="lbl" id="sqTitle">Что означает этот знак?</div><div style="font-size:17px; font-weight:700; color:var(--ink)">Что означает этот знак?</div>
+        <div class="sdpic" id="sqPic" style="padding:6px 0"></div>
+        <div id="sqOpts" style="display:flex; flex-direction:column; gap:8px"></div>
+        <div id="sqFeed" class="tip hidden"></div>
+        <button class="btn hidden" id="sqNext" onclick="Signs.nextQ()">Дальше →</button>
+      </div>
+    </div>
+    <div id="sqEnd" class="hidden" style="display:flex; flex-direction:column; gap:12px">
+      <div class="card" style="display:flex; flex-direction:column; gap:8px">
+        <span class="lbl">Ваш результат</span>
+        <div class="big" id="sqRes">0</div>
+        <div style="font-size:15px; line-height:1.5" id="sqResTxt"></div>
+        <div style="font-size:13px; color:var(--muted)" id="sqSaved"></div>
+      </div>
+      <div class="card" id="sqWrong"></div>
+      <button class="btn" onclick="Signs.quiz()">↻ Пройти ещё раз</button>
+      <button class="btn ghost" onclick="Signs.openList()">К знакам</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ УЧЁБА ============ -->
+<section id="scrLearn" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2 id="lnTitle"></h2><button class="iconbtn" aria-label="Закрыть" onclick="show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:15px; line-height:1.5" id="lnIntro"></div>
+      <div class="bar light"><div id="lnBar" style="width:0%"></div></div>
+      <span class="lbl" id="lnProg"></span>
+      <button class="btn" onclick="Learn.topicQuiz()">Проверить себя · 8 вопросов</button>
+    </div>
+    <div class="card"><div class="sgrid" id="lnGrid"></div></div>
+  </div>
+</section>
+
+<section id="scrLearnItem" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><button class="chip" onclick="Learn.back()">← К списку</button>
+      <button class="iconbtn" aria-label="Закрыть" onclick="Learn.stop(); show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card" style="display:flex; flex-direction:column; gap:12px">
+      <div class="sdpic" id="liPic"></div>
+      <div><div class="lbl" id="liNum"></div><h2 id="liName" style="margin-top:4px"></h2></div>
+      <div class="grid2"><button class="btn ghost" onclick="Learn.listen()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"></path></svg>Послушать</button><button class="btn ghost" onclick="Learn.stop()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>Стоп</button></div>
+      <div class="sdblock"><div class="lbl">Что значит</div><p id="liWhat"></p></div>
+      <div class="sdblock"><div class="lbl">Что делать</div><p id="liTodo"></p></div>
+      <div class="sdblock trap"><div class="lbl">Ошибка новичка</div><p id="liTrap"></p></div>
+      <div class="sdmemo">💡 <span id="liMemo"></span></div>
+    </div>
+    <div class="sdnav"><button class="btn ghost" onclick="Learn.prev()">← Назад</button><span id="liPos"></span><button class="btn" onclick="Learn.next()">Дальше →</button></div>
+  </div>
+</section>
+
+<section id="scrGuide" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2 id="gdTitle"></h2><button class="iconbtn" aria-label="Закрыть" onclick="Learn.stop(); show('scrMenu')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div class="card" style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:15px; line-height:1.5" id="gdIntro"></div>
+      <div class="grid2" id="gdCalls">
+        <a class="btn" href="tel:112">📞 Позвонить 112</a>
+        <a class="btn ghost" href="tel:102">Полиция 102</a>
+      </div>
+      <div class="grid2"><button class="btn ghost" onclick="Learn.sayAll()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"></path></svg>Слушать всё</button><button class="btn ghost" onclick="Learn.stop()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>Стоп</button></div>
+    </div>
+    <div id="gdSteps" style="display:flex; flex-direction:column; gap:10px"></div>
+  </div>
+</section>
+
+<section id="scrQuiz" class="screen hidden">
+  <div class="wrap">
+    <div class="top"><h2 id="qzTitle"></h2><button class="iconbtn" aria-label="Выйти из теста" onclick="Learn.quizBack()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+    <div id="qzBody" style="display:flex; flex-direction:column; gap:12px">
+      <div class="hudrow"><div class="prog"><span class="t" id="qzPos"></span><div class="dots" id="qzDots"></div></div><div class="score" id="qzScore">0</div></div>
+      <div class="card" style="display:flex; flex-direction:column; gap:10px">
+        <div class="sdpic" id="qzPic" style="padding:4px 0"></div>
+        <div style="font-size:17px; font-weight:700; color:var(--ink); line-height:1.35" id="qzQ"></div>
+        <div id="qzOpts" style="display:flex; flex-direction:column; gap:8px"></div>
+        <div id="qzFeed" class="tip hidden"></div>
+        <button class="btn hidden" id="qzNext" onclick="Learn.quizNext()">Дальше →</button>
+      </div>
+    </div>
+    <div id="qzEnd" class="hidden" style="display:flex; flex-direction:column; gap:12px">
+      <div class="card" style="display:flex; flex-direction:column; gap:8px">
+        <span class="lbl">Ваш результат</span><div class="big" id="qzRes">0</div>
+        <div style="font-size:15px; line-height:1.5" id="qzResTxt"></div>
+        <div style="font-size:13px; color:var(--muted)" id="qzSaved"></div>
+      </div>
+      <button class="btn ghost" onclick="Learn.quizBack()">Готово</button>
+    </div>
+  </div>
+</section>
+
+<script>
+// ================= Утилиты =================
+const $ = id => document.getElementById(id);
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+function plural(n, a, b, c) { n = Math.abs(n) % 100; if (n > 10 && n < 15) return c; n %= 10; return n === 1 ? a : (n > 1 && n < 5 ? b : c); }
+function fmtKm(m) { return (m / 1000).toFixed(1).replace('.', ','); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function show(id) {
+  ['scrMenu', 'scrBoard', 'scrSettings', 'scrResult', 'scrSigns', 'scrSign', 'scrSignQuiz', 'scrLearn', 'scrLearnItem', 'scrGuide', 'scrQuiz'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+  if (id === 'scrMenu') { refreshProfile(); signMenu(); }
+}
+function signMenu() {
+  if (!window.Signs) return;
+  if (window.Learn) Learn.menuIcons();
+  const n = Signs.seenCount(); $('signMenuTxt').textContent = n ? `Изучено ${n} из ${Signs.list.length}` : 'Все знаки ПДД и тест';
+}
+
+// ================= Уровни =================
+const LEVELS = [[0, 'Новичок'], [200, 'Ученик'], [500, 'Уверенный'], [1000, 'Опытный'], [1800, 'Штурман'], [3000, 'Ас дорог'], [5000, 'Легенда Иркутска']];
+function levelOf(xp) {
+  let i = 0; while (i + 1 < LEVELS.length && xp >= LEVELS[i + 1][0]) i++;
+  const cur = LEVELS[i][0], next = LEVELS[i + 1] ? LEVELS[i + 1][0] : null;
+  return { n: i + 1, name: LEVELS[i][1], cur, next, pct: next ? Math.round((xp - cur) / (next - cur) * 100) : 100,
+           txt: next ? `${xp} / ${next} очков` : `${xp} очков — максимум` };
+}
+function playerName() { return ($('playerName').value || '').trim() || 'Игрок'; }
+let BOARD = null;
+
+async function refreshProfile() {
+  loadProfile();
+  try { BOARD = await (await fetch('/api/leaderboard?me=' + encodeURIComponent(playerName()))).json(); } catch (e) { BOARD = null; }
+  const xp = BOARD && BOARD.me ? BOARD.me.total : 0, L = levelOf(xp);
+  $('lvlNum').textContent = L.n; $('lvlName').textContent = L.name; $('lvlBar').style.width = L.pct + '%'; $('lvlTxt').textContent = L.txt;
+  $('rankTxt').textContent = BOARD && BOARD.me ? BOARD.me.rank + ' место' : 'нет места';
+  const mini = $('boardMini'); mini.innerHTML = '';
+  const rows = BOARD ? BOARD.top.slice(0, 3) : [];
+  if (!rows.length) mini.innerHTML = '<div class="board-row"><span>Пока никого — будьте первым</span></div>';
+  rows.forEach(r => mini.insertAdjacentHTML('beforeend',
+    `<div class="board-row ${r.name === playerName() ? 'me' : ''}"><span>${r.rank}. ${esc(r.name)}</span><span>${r.total}</span></div>`));
+  if (BOARD && BOARD.me && BOARD.me.rank > 3)
+    mini.insertAdjacentHTML('beforeend', `<div class="board-row me"><span>${BOARD.me.rank}. Вы</span><span>${BOARD.me.total}</span></div>`);
+}
+function openBoard() {
+  const box = $('boardFull'); box.innerHTML = '';
+  const rows = BOARD ? BOARD.top : [];
+  if (!rows.length) box.innerHTML = '<div class="board-row"><span>Пока никого нет</span></div>';
+  rows.forEach(r => box.insertAdjacentHTML('beforeend',
+    `<div class="board-row ${r.name === playerName() ? 'me' : ''}"><span>${r.rank}. ${esc(r.name)} · ${r.games} ${plural(r.games, 'поездка', 'поездки', 'поездок')}</span><span>${r.total}</span></div>`));
+  show('scrBoard');
+}
+$('playerName').value = store('nav_name') || '';
+
+// ================= Ученик автошколы: код от преподавателя =================
+let STUDENT = (() => { try { return JSON.parse(store('nav_student') || 'null'); } catch (e) { return null; } })();
+function progressSnap() {
+  const seenL = (() => { try { return JSON.parse(localStorage.getItem('nav_learn_seen') || '[]').length; } catch (e) { return 0; } })();
+  const d = (() => { try { return JSON.parse(localStorage.getItem('nav_daily') || '{}'); } catch (e) { return {}; } })();
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const alive = d.last === new Date().toLocaleDateString('sv') || d.last === y.toLocaleDateString('sv');
+  return { signs_seen: window.Signs ? Signs.seenCount() : 0, learn_seen: seenL, daily_streak: alive ? (d.streak || 0) : 0 };
+}
+const _fetch = window.fetch.bind(window);
+window.fetch = (url, opt) => {                     // ученику — привязываем результаты к его коду
+  if (STUDENT && opt && opt.method === 'POST' && (url === '/api/score' || url === '/api/profile')) {
+    try { const b = JSON.parse(opt.body); b.student = STUDENT.code; b.progress = progressSnap(); opt = Object.assign({}, opt, { body: JSON.stringify(b) }); } catch (e) {}
+  }
+  return _fetch(url, opt);
+};
+function renderStudent() {
+  const box = $('stuBox');
+  if (STUDENT) {
+    $('playerName').value = STUDENT.name; $('playerName').disabled = true;
+    box.innerHTML = `<div class="note" style="display:block">🎓 Вы — ученик автошколы <b>«${esc(STUDENT.school)}»</b>. Преподаватель видит ваши маршруты, тесты и ошибки.
+      <div style="margin-top:8px"><button class="linkbtn" style="height:28px; padding:0" onclick="studentOff()">Отключить код</button></div></div>`;
+  } else {
+    $('playerName').disabled = false;
+    box.innerHTML = `<div class="field"><label class="lbl" for="stuCode">Код ученика автошколы (если есть)</label>
+      <div style="display:flex; gap:8px"><input id="stuCode" maxlength="6" placeholder="Например, K7P2QX" style="text-transform:uppercase; letter-spacing:.12em" autocomplete="off">
+      <button class="minibtn" style="height:42px" onclick="studentOn()">Подключить</button></div>
+      <div class="err" id="stuErr"></div></div>`;
+  }
+}
+async function studentOn() {
+  const code = ($('stuCode').value || '').trim().toUpperCase();
+  if (code.length !== 6) { $('stuErr').textContent = 'В коде 6 символов.'; return; }
+  try {
+    const r = await (await _fetch('/api/student?code=' + encodeURIComponent(code))).json();
+    if (!r.ok) { $('stuErr').textContent = r.error; return; }
+    STUDENT = { code, name: r.name, school: r.school }; store('nav_student', JSON.stringify(STUDENT)); store('nav_name', r.name);
+    renderStudent(); refreshProfile(); speak(`Здравствуйте, ${r.name}! Код подключён.`);
+  } catch (e) { $('stuErr').textContent = 'Нет связи с сервером.'; }
+}
+function studentOff() {
+  if (!confirm('Отключить код ученика? Новые результаты перестанут попадать к преподавателю.')) return;
+  STUDENT = null; store('nav_student', ''); renderStudent();
+}
+renderStudent();
+$('playerName').addEventListener('change', () => { store('nav_name', playerName()); refreshProfile(); });
+const SPEEDS = ['1', '1.5', '2', '3'];
+function setCarSpeed(v) {
+  if (!SPEEDS.includes(String(v))) v = '1';
+  store('nav_car', v); $('carSpeed').value = v; $('btnSpeed').textContent = '×' + String(v).replace('.', ',');
+  if (G && G.on) G.carMult = Number(v);
+}
+function cycleSpeed() { const cur = String($('carSpeed').value); setCarSpeed(SPEEDS[(SPEEDS.indexOf(cur) + 1) % SPEEDS.length]); }
+
+// ================= Карта =================
+// Карта 2ГИС (MapGL, объёмные дома). Если 2ГИС недоступен или нет ключа — обычная карта OpenStreetMap.
+const DGIS_KEY = '__DGIS_KEY__';
+const USE_GL = typeof mapgl !== 'undefined' && DGIS_KEY && DGIS_KEY.indexOf('__') !== 0;
+function makeGL() {
+  const ll = p => [p[1], p[0]];
+  let glmap = null, zc = 1;
+  class Obj { constructor() { this._parent = null; } addTo(c) { c.addLayer(this); return this; } _show() {} _hide() {} on() { return this; } }
+  class Poly extends Obj {
+    constructor(lls, o) { super(); this.lls = lls || []; this.o = o || {}; this.g = null; this.z = zc++; }
+    _opts() {
+      const o = this.o, a = o.opacity == null ? 1 : o.opacity;
+      const r = { coordinates: this.lls.map(ll), width: o.weight || 5, zIndex: this.z,
+                  color: (o.color || '#2F80FA') + Math.round(a * 255).toString(16).padStart(2, '0') };
+      if (o.dashArray) { const [d, g] = String(o.dashArray).split(/[ ,]+/).map(Number); r.dashLength = Math.max(d, 4); r.gapLength = g || d; }
+      return r;
+    }
+    _show() { this._hide(); if (this.lls.length >= 2) this.g = new mapgl.Polyline(glmap, this._opts()); }
+    _hide() { if (this.g) { this.g.destroy(); this.g = null; } }
+    setLatLngs(l) { this.lls = l || []; if (this._parent && this._parent.vis) this._show(); return this; }
+    getBounds() { return this.lls; }
+  }
+  class Mark extends Obj {
+    constructor(p, o) {
+      super(); o = o || {}; this.p = p; this.g = null;
+      const ic = o.icon || { html: '<div class="poi"></div>', iconSize: [12, 12] }, sz = ic.iconSize || [12, 12];
+      this.el = document.createElement('div'); this.el.className = ic.className || '';
+      this.el.style.cssText = `position:relative; width:${sz[0]}px; height:${sz[1]}px;`;
+      this.el.innerHTML = ic.html || '';
+      this.anchor = ic.iconAnchor || [sz[0] / 2, sz[1] / 2]; this.z = o.zIndexOffset ? 1000 : 10;
+    }
+    _show() { this._hide(); this.g = new mapgl.HtmlMarker(glmap, { coordinates: ll(this.p), html: this.el, anchor: this.anchor, zIndex: this.z, interactive: false }); }
+    _hide() { if (this.g) { this.g.destroy(); this.g = null; } }
+    setLatLng(p) { this.p = p; if (this.g) this.g.setCoordinates(ll(p)); return this; }
+    getElement() { return this.el; }
+    bindTooltip(text) { const sp = document.createElement('span'); sp.className = 'gltip'; sp.textContent = text; this.el.appendChild(sp); return this; }
+    bindPopup() { return this; }
+  }
+  class Group extends Obj {
+    constructor() { super(); this.items = new Set(); this.vis = false; }
+    addLayer(x) { this.items.add(x); x._parent = this; if (this.vis) x._show(); return this; }
+    removeLayer(x) { if (this.items.delete(x)) { x._hide(); x._parent = null; } return this; }
+    clearLayers() { this.items.forEach(x => { x._hide(); x._parent = null; }); this.items.clear(); return this; }
+    _show() { this.vis = true; this.items.forEach(x => x._show()); }
+    _hide() { this.vis = false; this.items.forEach(x => x._hide()); }
+  }
+  class GMap {
+    constructor(id) {
+      glmap = new mapgl.Map(id, { key: DGIS_KEY, center: [104.2810, 52.2870], zoom: 13, zoomControl: false, lang: 'ru',
+                                  graphicsPreset: store('nav_3d') === '0' ? 'normal' : 'immersive' });
+      window.GLMAP = glmap;
+      this.root = new Group(); this.root.vis = true;
+    }
+    addLayer(x) { this.root.addLayer(x); return this; }
+    removeLayer(x) { this.root.removeLayer(x); return this; }
+    setView(p, z) { glmap.setCenter(ll(p), { duration: 0 }); if (z != null) glmap.setZoom(z, { duration: 0 }); return this; }
+    panTo(p) { glmap.setCenter(ll(p), { duration: 0 }); return this; }
+    setPitch(v) { glmap.setPitch(v, { duration: 700 }); return this; }
+    fitBounds(lls, o) {
+      o = o || {}; if (!lls || !lls.length) return this;
+      let s = 90, w = 180, n = -90, e = -180;
+      lls.forEach(p => { s = Math.min(s, p[0]); n = Math.max(n, p[0]); w = Math.min(w, p[1]); e = Math.max(e, p[1]); });
+      const tl = o.paddingTopLeft || [30, 30], br = o.paddingBottomRight || tl;
+      glmap.fitBounds({ southWest: [w, s], northEast: [e, n] },
+        { padding: { top: tl[1], left: tl[0], bottom: br[1], right: br[0] }, maxZoom: o.maxZoom || 18, animation: { duration: 500 } });
+      return this;
+    }
+  }
+  return { map: id => new GMap(id), layerGroup: () => new Group(), polyline: (a, o) => new Poly(a, o),
+           marker: (p, o) => new Mark(p, o), divIcon: o => o };
+}
+// какая карта: osm — обычная (OpenStreetMap), dgis — 2ГИС плоская, gl — 2ГИС 3D (векторная)
+let MAP_KIND = store('nav_map') || (USE_GL ? 'gl' : 'osm');
+if (!['osm', 'dgis', 'gl'].includes(MAP_KIND)) MAP_KIND = 'osm';
+let ML = L, map, tiles = null;
+if (MAP_KIND === 'gl' && USE_GL) { try { ML = makeGL(); } catch (e) { console.warn('MapGL не запустился:', e); ML = L; } }
+try { map = ML.map('map', { zoomControl: false, attributionControl: true }).setView([52.2870, 104.2810], 13); }
+catch (e) { console.warn('Карта 2ГИС 3D не открылась, беру обычную:', e); ML = L; map = L.map('map', { zoomControl: false }).setView([52.2870, 104.2810], 13); }
+const TILES = {
+  osm: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; участники OpenStreetMap' }],
+  dgis: ['https://tile{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1', { maxZoom: 18, subdomains: '0123', attribution: '&copy; 2ГИС' }],
+};
+function setTiles(kind) {
+  if (ML !== L) return;
+  if (tiles) map.removeLayer(tiles);
+  tiles = L.tileLayer(TILES[kind][0], TILES[kind][1]).addTo(map);
+  $('map').classList.toggle('osm', kind === 'osm');
+}
+if (ML === L) {
+  setTiles(MAP_KIND === 'dgis' ? 'dgis' : 'osm');
+  if (map.attributionControl) map.attributionControl.setPrefix(false);   // без надписи «Leaflet» и флажка
+}
+function mapButtons() {
+  const actual = ML !== L ? 'gl' : (MAP_KIND === 'dgis' ? 'dgis' : 'osm');
+  document.querySelectorAll('.mapseg button').forEach(b => {
+    b.classList.toggle('on', b.dataset.map === actual);
+    if (b.dataset.map === 'gl') b.disabled = !USE_GL;
+  });
+  $('mapNote').textContent = !USE_GL ? '2ГИС 3D недоступна: нет ключа 2ГИС или карта не загрузилась.'
+    : actual === 'gl' ? 'Векторная карта 2ГИС: в поездке видны объёмные дома.' : '';
+}
+// --- слои карты 2ГИС: пробки, 3D-режим, 3D-машинка ---
+const TOOLS = { traffic: store('nav_traffic') === '1', immersive: store('nav_3d') !== '0' };
+const TOOL_KEYS = { traffic: 'nav_traffic', immersive: 'nav_3d' };
+function toolButtons() {
+  const gl = ML !== L;
+  $('mapTools').classList.toggle('hidden', !gl); $('toolChips').classList.toggle('hidden', !gl);
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', !!TOOLS[b.dataset.tool]));
+}
+function applyTools() {
+  toolButtons();
+  if (ML === L || !window.GLMAP) return;
+  try { TOOLS.traffic ? GLMAP.showTraffic() : GLMAP.hideTraffic(); } catch (e) { console.warn('Пробки:', e); }
+  try { GLMAP.patchStyleState({ graphicsPreset: TOOLS.immersive ? 'immersive' : 'normal', immersiveRoadsOn: TOOLS.immersive }); }
+  catch (e) { console.warn('3D-режим:', e); }
+}
+function toggleTool(t) { TOOLS[t] = !TOOLS[t]; store(TOOL_KEYS[t], TOOLS[t] ? '1' : '0'); applyTools(); }
+
+function setMapKind(kind) {
+  if (G && G.on) return;                       // во время поездки карту не меняем
+  store('nav_map', kind);
+  const needGL = kind === 'gl';
+  if (needGL !== (ML !== L)) { location.reload(); return; }   // другая карта — перезапускаем страницу
+  MAP_KIND = kind; setTiles(kind); mapButtons();
+}
+const layer = ML.layerGroup().addTo(map);
+
+// ================= Поиск и маршрут =================
+const pts = { from: null, to: null };
+const PRESETS = [
+  { t: 'Пл. Кирова → Аэропорт', a: [52.2873, 104.2807, 'Площадь Кирова'], b: [52.2680, 104.3889, 'Аэропорт Иркутск'] },
+  { t: 'Вокзал → 130 квартал', a: [52.2836, 104.2588, 'Ж/д вокзал'], b: [52.2770, 104.2875, '130 квартал'] },
+  { t: 'Центр → Академгородок', a: [52.2873, 104.2807, 'Площадь Кирова'], b: [52.2470, 104.2660, 'Академгородок'] },
+];
+PRESETS.forEach(p => {
+  const b = document.createElement('button'); b.className = 'preset'; b.textContent = p.t;
+  b.onclick = () => { setPoint('from', p.a); setPoint('to', p.b); buildRoute(false); };
+  $('presets').appendChild(b);
+});
+function setPoint(which, [lat, lon, name]) {
+  pts[which] = { lat, lon, name };
+  $(which === 'from' ? 'qFrom' : 'qTo').value = name;
+  $(which === 'from' ? 'rFrom' : 'rTo').innerHTML = '';
+}
+async function search(which) {
+  const inp = $(which === 'from' ? 'qFrom' : 'qTo'), box = $(which === 'from' ? 'rFrom' : 'rTo');
+  const q = inp.value.trim(); if (!q) return;
+  pts[which] = null;
+  box.innerHTML = '<div class="msg">Ищу…</div>';
+  try {
+    const res = await (await fetch('/api/geocode?q=' + encodeURIComponent(q))).json();
+    if (res.error) throw new Error(res.error);
+    box.innerHTML = '';
+    if (!res.length) { box.innerHTML = '<div class="msg">Не нашёл в Иркутске. Уточните адрес.</div>'; return; }
+    res.forEach(r => {
+      const b = document.createElement('button'); b.textContent = r.name;
+      b.onclick = () => setPoint(which, [r.lat, r.lon, r.name.split(',')[0]]);
+      box.appendChild(b);
+    });
+  } catch (e) { box.innerHTML = '<div class="msg">Ошибка поиска: ' + esc(e.message) + '</div>'; }
+}
+['from', 'to'].forEach(w => {
+  const inp = $(w === 'from' ? 'qFrom' : 'qTo');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') search(w); });
+  inp.addEventListener('input', () => { pts[w] = null; });
+  inp.addEventListener('blur', () => { if (!pts[w] && inp.value.trim()) search(w); });
+});
+
+let R = null;   // маршрут с сервера
+async function buildRoute(keepSpot) {
+  if (keepSpot !== true) curSpot = null;
+  $('menuErr').textContent = '';
+  for (const w of ['from', 'to']) if (!pts[w]) {
+    const v = $(w === 'from' ? 'qFrom' : 'qTo').value.trim();
+    if (!v) { $('menuErr').textContent = 'Укажите, откуда и куда едем.'; return; }
+    await search(w);
+    $('menuErr').textContent = 'Выберите адрес из подсказок.'; return;
+  }
+  const b = $('btnBuild'); b.disabled = true; b.firstChild.textContent = 'Строю маршрут… ';
+  try {
+    const u = `/api/route?from=${pts.from.lat},${pts.from.lon}&to=${pts.to.lat},${pts.to.lon}` +
+              `&fn=${encodeURIComponent(pts.from.name)}&tn=${encodeURIComponent(pts.to.name)}`;
+    const res = await (await fetch(u)).json();
+    if (res.error) throw new Error(res.error);
+    R = res; openPreview();
+  } catch (e) { $('menuErr').textContent = 'Не получилось: ' + e.message; }
+  b.disabled = false; b.firstChild.textContent = 'Построить маршрут ';
+}
+
+// ================= Просмотр маршрута =================
+let mode = 'memory', listened = false;
+
+function icon(cls, size) { return ML.divIcon({ className: '', html: `<div class="${cls}"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }); }
+
+function poiMarker(q) {
+  const big = ['bridge', 'sight', 'museum', 'monument', 'church', 'theatre', 'station'].includes(q.kind);
+  return ML.marker([q.lat, q.lon], { icon: icon('poi' + (big ? ' big' : ''), 12), interactive: false })
+    .bindTooltip(q.label.replace(/^./, c => c.toUpperCase()), { permanent: true, direction: 'right', offset: [8, 0], className: 'poitip' });
+}
+function drawFull() {
+  layer.clearLayers();
+  (R.pois || []).forEach(q => poiMarker(q).addTo(layer));
+  ML.polyline(R.geometry, { color: '#23251D', weight: 10, opacity: .35 }).addTo(layer);
+  const line = ML.polyline(R.geometry, { color: '#2F80FA', weight: 6 }).addTo(layer);
+  R.signals.forEach(s => ML.marker(s, { icon: icon('sig', 10), interactive: false }).addTo(layer));
+  ML.marker(R.geometry[0], { icon: icon('startdot', 16) }).addTo(layer);
+  ML.marker(R.geometry[R.geometry.length - 1], { icon: icon('flag', 16) }).addTo(layer);
+  return line;
+}
+function openPreview() {
+  show(null); $('preview').classList.remove('hidden');
+  $('pvTitle').innerHTML = `${esc(pts.from.name)} → <em>${esc(pts.to.name)}</em>`;
+  $('pvDist').textContent = fmtKm(R.total_m); $('pvTime').textContent = Math.max(1, Math.round(R.duration_s / 60));
+  $('pvMan').textContent = R.maneuvers; $('pvSig').textContent = R.osm_ok ? R.signals_count : '?';
+  $('pvWarn').textContent = [R.source_note, R.osm_ok ? '' : 'Светофоры сейчас не загрузились — рассказ без них.'].filter(Boolean).join(' ');
+  $('pvSrc').textContent = R.source === '2gis' ? 'Маршрут: 2ГИС' : 'Маршрут: OSRM';
+  const ul = $('steps'); ul.innerHTML = ''; let n = 0;
+  R.actions.forEach(a => {
+    const num = a.kind === 'depart' ? 'А' : a.kind === 'arrive' ? 'Б' : ++n;
+    ul.insertAdjacentHTML('beforeend', `<li class="${a.hard ? 'hard' : ''}"><span class="n">${num}</span>${esc(a.text)}</li>`);
+  });
+  listened = false;
+  $('pvForm').classList.add('hidden');
+  $('pvSpotTip').classList.toggle('hidden', !curSpot);
+  if (curSpot) $('pvSpotTip').innerHTML = `<b>⚠ ${esc(curSpot.title)}.</b> ${esc(curSpot.tip || '')}`;
+  const line = drawFull();
+  map.fitBounds(line.getBounds(), { paddingTopLeft: [30, 30], paddingBottomRight: [30, Math.min(460, innerHeight * .55)] });
+}
+function toMenu() { endDrive(); stopSpeech(); ['preview', 'demoEnd', 'drill'].forEach(id => $(id).classList.add('hidden')); show('scrMenu'); }
+
+// ================= Голос =================
+let voiceMode = 'browser', VOICES = [], liveState = { ok: null, error: '' };
+const audio = new Audio(); let speakToken = 0;
+function voiceSettings() { return { voice: $('vVoice').value, role: $('vRole').value, speed: Number($('vSpeed').value) }; }
+async function speak(text, onStart) {
+  const my = ++speakToken; audio.pause(); speechSynthesis.cancel();
+  let url = null;
+  if (voiceMode !== 'browser') {
+    try {
+      const r = await (await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ text }, voiceSettings())) })).json();
+      url = r.url || null;
+      if (r.live_ok !== undefined && r.live_ok !== liveState.ok) { liveState = { ok: r.live_ok, error: r.live_error }; showVoiceInfo(); }
+    } catch (e) { url = null; }
+  }
+  if (my !== speakToken) return;
+  if (onStart) onStart();
+  return new Promise(res => {
+    if (url) { audio.src = url; audio.onended = res; audio.onerror = res; audio.play().catch(res); }
+    else { const u = new SpeechSynthesisUtterance(text); u.lang = 'ru-RU'; u.rate = .95; u.onend = res; u.onerror = res; speechSynthesis.speak(u); }
+  });
+}
+function prefetch(texts) {
+  if (voiceMode === 'browser') return;
+  (async () => { for (const t of texts) { try { await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ text: t }, voiceSettings())) }); } catch (e) {} } })();
+}
+function stopSpeech() { speakToken++; audio.pause(); speechSynthesis.cancel(); }
+
+function fillRoles(keep) {
+  const v = VOICES.find(x => x.id === $('vVoice').value), sel = $('vRole'); sel.innerHTML = '';
+  (v ? v.roles : []).forEach(([id, n]) => sel.add(new Option(n, id)));
+  if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+  $('vSpeed').disabled = !!(v && v.family === 'live') || voiceMode !== 'yandex';
+}
+function saveVoice() { store('nav_voice', JSON.stringify(voiceSettings())); }
+function showVoiceInfo() {
+  let t = { yandex: '✅ Говорит Яндекс SpeechKit.', edge: '⚠️ Ключ Яндекса не найден — запасной голос Microsoft.',
+            browser: '⚠️ Ключ Яндекса не найден — говорит голос браузера.' }[voiceMode] || '';
+  if (voiceMode === 'yandex' && liveState.ok === false) t = '⚠️ Живые голоса сейчас недоступны (' + liveState.error + '). Говорит Марина.';
+  $('vInfo').textContent = t;
+  $('keyBox').classList.toggle('hidden', voiceMode === 'yandex');
+  ['vVoice', 'vRole'].forEach(id => $(id).disabled = voiceMode !== 'yandex');
+}
+function showDgis(on) {
+  $('dgInfo').textContent = on ? '✅ Маршруты и поиск — 2ГИС.' : '⚠️ Ключ 2ГИС не задан — маршруты строит запасной сервис (OSRM).';
+}
+async function saveDgis() {
+  const key = $('dgKey').value.trim();
+  try { const r = await api('/api/dgis_key', { key }); showDgis(r.dgis); $('dgKey').value = ''; }
+  catch (e) { $('dgInfo').textContent = 'Не удалось сохранить: ' + e.message; }
+}
+async function saveKey() {
+  const key = $('yaKey').value.trim(); if (!key) return;
+  try { const r = await (await fetch('/api/key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) })).json();
+    if (r.error) throw new Error(r.error); voiceMode = r.voice; showVoiceInfo(); } catch (e) { $('vInfo').textContent = 'Не удалось сохранить: ' + e.message; }
+}
+fetch('/api/status').then(r => r.json()).then(s => {
+  voiceMode = s.voice; VOICES = s.voices || []; liveState = { ok: s.live_ok, error: s.live_error };
+  showDgis(s.dgis);
+  const vs = $('vVoice');
+  [['live', 'Живые голоса'], ['general', 'Обычные голоса']].forEach(([fam, title]) => {
+    const og = document.createElement('optgroup'); og.label = title;
+    VOICES.filter(v => v.family === fam).forEach(v => og.appendChild(new Option(v.name, v.id))); vs.appendChild(og);
+  });
+  let saved = null; try { saved = JSON.parse(store('nav_voice') || 'null'); } catch (e) {}
+  vs.value = saved && VOICES.some(v => v.id === saved.voice) ? saved.voice : s.default_voice;
+  fillRoles(saved ? saved.role : s.default_role);
+  $('vSpeed').value = String(saved ? saved.speed : s.default_speed); if (!$('vSpeed').value) $('vSpeed').value = '0.95';
+  showVoiceInfo();
+}).catch(() => {});
+
+// ================= Поездка =================
+const G = { on: false };
+const DIRS = { left: ['Налево', 'M19 12H5M11 6l-6 6 6 6'], straight: ['Прямо', 'M12 19V5M6 11l6-6 6 6'], right: ['Направо', 'M5 12h14M13 6l6 6-6 6'], uturn: ['Разворот', 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3'] };
+const SAY = { left: 'налево', straight: 'прямо', right: 'направо', uturn: 'разворот' };
+const ORD = ['', 'первый', 'второй', 'третий', 'четвёртый', 'пятый', 'шестой', 'седьмой', 'восьмой'];
+const CAR_SVG = '<svg viewBox="0 0 30 30"><rect x="8" y="3" width="14" height="24" rx="5" fill="#eb9d2a" stroke="#23251d" stroke-width="1.5"/><rect x="10" y="7" width="10" height="6" rx="2" fill="#23251d"/><rect x="10" y="20" width="10" height="4" rx="1.5" fill="#23251d"/><rect x="9" y="1.5" width="4" height="2.5" rx="1" fill="#FFE58A"/><rect x="17" y="1.5" width="4" height="2.5" rx="1" fill="#FFE58A"/><rect x="7" y="25" width="16" height="2" rx="1" fill="#f54e00"/></svg>';
+
+function pointAt(s) {
+  const c = R.cum, g = R.geometry;
+  if (s <= 0) return { ll: g[0], i: 0 };
+  if (s >= c[c.length - 1]) return { ll: g[g.length - 1], i: g.length - 2 };
+  let lo = 0, hi = c.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] <= s) lo = m; else hi = m; }
+  const t = (s - c[lo]) / ((c[hi] - c[lo]) || 1);
+  return { ll: [g[lo][0] + (g[hi][0] - g[lo][0]) * t, g[lo][1] + (g[hi][1] - g[lo][1]) * t], i: lo };
+}
+function slice(a, b) {
+  const c = R.cum, g = R.geometry, out = [pointAt(a).ll];
+  for (let i = 0; i < c.length; i++) if (c[i] > a && c[i] < b) out.push(g[i]);
+  out.push(pointAt(b).ll); return out;
+}
+function bearing(i) {
+  const g = R.geometry, a = g[i], b = g[Math.min(i + 1, g.length - 1)], r = Math.PI / 180;
+  const y = Math.sin((b[1] - a[1]) * r) * Math.cos(b[0] * r);
+  const x = Math.cos(a[0] * r) * Math.sin(b[0] * r) - Math.sin(a[0] * r) * Math.cos(b[0] * r) * Math.cos((b[1] - a[1]) * r);
+  return Math.atan2(y, x) / r;
+}
+
+function startDrive(demo) {
+  stopSpeech(); mode = 'memory';
+  $('preview').classList.add('hidden'); $('demoEnd').classList.add('hidden');
+  const acts = R.actions.map(a => Object.assign({}, a));
+  const qs = acts.filter(a => a.question);
+  Object.assign(G, { demo: !!demo, ni: 1, talking: false, on: true, paused: false, s: 0, last: null, acts, qs, qi: 0, score: 0, streak: 0, bestStreak: 0,
+    correct: 0, total: 0, log: [], drill: [], hints: 0, hintPts: 0, streakPts: 0, basePts: 0, results: [], asking: null, waitAt: null,
+    listenBonus: listened ? 20 : 0, mult: mode === 'hints' ? .5 : 1, carMult: Number($('carSpeed').value) || 1 });
+  $('btnSpeed').textContent = '×' + $('carSpeed').value.replace('.', ',');
+  G.score = G.listenBonus;
+  layer.clearLayers();
+  if (demo) ML.polyline(R.geometry, { color: '#2F80FA', weight: 6, opacity: .35 }).addTo(layer);
+  G.done = ML.polyline([], { color: '#2F80FA', weight: 7 }).addTo(layer);
+  G.ahead = ML.polyline([], { color: '#2F80FA', weight: 6, dashArray: '2 12', lineCap: 'round', opacity: .8 }).addTo(layer);
+  G.ring = ML.marker(R.geometry[0], { icon: ML.divIcon({ className: '', html: '<div class="ring"></div>', iconSize: [44, 44], iconAnchor: [22, 22] }), interactive: false });
+  G.car = ML.marker(R.geometry[0], { icon: ML.divIcon({ className: 'carico', html: CAR_SVG, iconSize: [30, 30], iconAnchor: [15, 15] }), interactive: false, zIndexOffset: 1000 }).addTo(layer);
+  ML.marker(R.geometry[0], { icon: icon('startdot', 16), interactive: false }).addTo(layer);
+  map.setView(R.geometry[0], 17, { animate: false });
+  if (map.setPitch) map.setPitch(45);          // карта 2ГИС: наклон, видны объёмные дома
+  $('dots').innerHTML = demo ? '' : qs.map(() => '<i></i>').join('');
+  $('hud').classList.remove('hidden'); $('hudToast').classList.add('hidden');
+  G.pm = (R.pois || []).map(q => ({ q, m: poiMarker(q), shown: false }));
+  G.co = (R.callouts || []).map(c => Object.assign({}, c)); G.ci = 0;
+  showPois();
+  G.started = false;
+  let intro;
+  if (demo) {
+    revealDemo(); updateHud();
+    prefetch(acts.slice(1).map(a => a.text));
+    intro = talk((curSpot ? `Опасное место: ${curSpot.title}. ${curSpot.tip || ''} ` : '') + acts[0].text + ' ' + (acts[1] ? acts[1].text : ''));
+  } else {
+    updateHud(); revealNext();
+    intro = speak('Теперь ведёте вы. Подсказок не будет — вспоминайте маршрут. На каждом перекрёстке решаете сами.');
+  }
+  // машинка трогается, когда штурман договорит (но не позже чем через 7 секунд)
+  Promise.race([intro, new Promise(r => setTimeout(r, 7000))]).then(() => { if (G.on && !G.started) { G.started = true; requestAnimationFrame(tick); } });
+}
+
+function showPois() {           // в показе видно всё, когда ведёте сами — только то, что уже открыто
+  const upto = G.demo ? Infinity : (G.aheadTo || 0) + 80;
+  (G.pm || []).forEach(x => { if (!x.shown && x.q.along <= upto) { x.shown = true; x.m.addTo(layer); } });
+}
+function nextQ() { return G.demo ? null : (G.qs[G.qi] || null); }
+function talk(text) {            // говорим и помним, что штурман ещё говорит
+  G.talking = true; const my = (G.talkId = (G.talkId || 0) + 1);
+  const safety = setTimeout(() => { if (G.talkId === my) G.talking = false; }, Math.max(5000, text.length * 110));
+  return speak(text).then(() => { clearTimeout(safety); if (G.talkId === my) G.talking = false; });
+}
+function demoAct() { return G.acts[G.ni] || null; }
+function revealDemo() {
+  const a = demoAct();
+  if (a && a.kind !== 'arrive') G.ring.setLatLng([a.lat, a.lon]).addTo(layer); else layer.removeLayer(G.ring);
+  G.aheadTo = R.total_m;
+  if (!a || a.kind === 'arrive') ML.marker(R.geometry[R.geometry.length - 1], { icon: icon('flag', 16), interactive: false }).addTo(layer);
+}
+function revealNext() {         // показываем дорогу только до ближайшего манёвра
+  const q = nextQ(), end = q ? q.along : R.total_m;
+  G.aheadTo = end;
+  if (q) G.ring.setLatLng([q.lat, q.lon]).addTo(layer); else layer.removeLayer(G.ring);
+  showPois();
+  if (!q) ML.marker(R.geometry[R.geometry.length - 1], { icon: icon('flag', 16), interactive: false }).addTo(layer);
+}
+function updateHud() {
+  if (G.demo) {
+    const a = demoAct(), man = G.acts.filter(x => x.question).length, done = G.acts.slice(1, G.ni).filter(x => x.question).length;
+    $('hudScore').textContent = 'Показ'; $('hudCount').textContent = `манёвр ${Math.min(done + 1, man)} из ${man}`;
+    const left = (a ? a.along : R.total_m) - G.s;
+    $('hudNext').innerHTML = a && a.kind !== 'arrive' ? `${esc((a.prompt || '').replace(/^Через [^ ]+ [^ ]+ /, '').replace(/\.$/, ''))} · <b>${Math.max(0, Math.round(left / 10) * 10)} м</b>`
+                                                     : `До финиша <b>${Math.max(0, Math.round(left / 10) * 10)} м</b>`;
+    return;
+  }
+  const q = nextQ();
+  $('hudScore').textContent = Math.round(G.score);
+  $('hudCount').textContent = q ? `${G.qi + 1} из ${G.qs.length}` : 'финиш';
+  [...$('dots').children].forEach((d, i) => d.className = G.results[i] === true ? 'ok' : G.results[i] === false ? 'bad' : i === G.qi ? 'cur' : '');
+  const left = (q ? q.along : R.total_m) - G.s;
+  $('hudNext').innerHTML = q ? `Перекрёсток через <b>${Math.max(0, Math.round(left / 10) * 10)} м</b>` : `До финиша <b>${Math.max(0, Math.round(left / 10) * 10)} м</b>`;
+}
+function toast(html, good) {
+  const t = $('hudToast'); t.innerHTML = html; t.className = 'pill ' + (good ? 'good' : 'bad');
+  clearTimeout(G.toastT); G.toastT = setTimeout(() => t.classList.add('hidden'), 2600);
+}
+
+function speedAt() {            // быстро между перекрёстками, потихоньку перед ними
+  const q = G.demo ? demoAct() : nextQ(), d = (q ? q.along : R.total_m) - G.s;
+  const v = d < 60 ? 6 : d < 250 ? 9 : d < 600 ? 16 : 24;
+  return v * G.carMult;
+}
+let hudTick = 0;
+function tick(ts) {
+  if (!G.on) return;
+  if (G.paused) { G.last = null; return requestAnimationFrame(tick); }
+  const dt = G.last == null ? 0 : Math.min(.1, (ts - G.last) / 1000); G.last = ts;
+  const q = nextQ();
+  let target = G.s + speedAt() * dt;
+  if (q && !q.answered && target > q.along) target = q.along;        // ждём ответа на перекрёстке
+  if (q && q.lanes && q.laneAsked && !q.laneAnswered && target > q.along - 70) target = Math.max(G.s, q.along - 70);
+  if (G.demo) {                                                      // в показе ждём, пока штурман договорит
+    const a = demoAct();
+    if (a && G.talking && target > a.along) target = a.along;
+    if (a && target >= a.along && !G.talking) {
+      G.ni++; const nx = demoAct(); revealDemo();
+      if (nx) talk(nx.text);
+    }
+  }
+  G.s = Math.min(target, R.total_m);
+
+  const p = pointAt(G.s);
+  G.car.setLatLng(p.ll);
+  const el = G.car.getElement(); if (el) el.firstChild.style.transform = `rotate(${bearing(p.i)}deg)`;
+  map.panTo(p.ll, { animate: false });
+  if (ts - hudTick > 150) { hudTick = ts; updateHud(); }
+  if (ts - (G.lineTick || 0) > (ML === L ? 150 : 450)) { G.lineTick = ts; G.done.setLatLngs(slice(0, G.s)); G.ahead.setLatLngs(slice(G.s, G.aheadTo)); }
+
+  // штурман называет ориентиры и светофоры, когда проезжаем мимо (если он сейчас молчит)
+  while (G.co && G.ci < G.co.length && G.co[G.ci].along <= G.s + 25) {
+    const c = G.co[G.ci++];
+    if (!G.talking && !G.asking && G.s - c.along < 40) talk(c.text);
+  }
+  if (q) {
+    const seg = q.along - (G.qi ? G.qs[G.qi - 1].along : 0);
+    if (q.lanes && !q.laneAsked && !G.asking && G.s >= q.along - Math.min(260, seg * .85)) { q.laneAsked = true; ask(q, 'lane'); }
+    if (!q.asked && !G.asking && (!q.lanes || q.laneAnswered) && G.s >= q.along - Math.min(110, seg * .6)) { q.asked = true; ask(q, 'turn'); }
+  }
+  if (G.s >= R.total_m) {
+    if (G.demo) { if (!G.talking) return demoFinish(); }
+    else return finish();
+  }
+  requestAnimationFrame(tick);
+}
+
+const LANE_P = {
+  left: 'M15 21v-8a4 4 0 0 0-4-4H6 M9 6L6 9l3 3', right: 'M9 21v-8a4 4 0 0 1 4-4h5 M15 6l3 3-3 3',
+  straight: 'M12 21V4 M8 8l4-4 4 4', 'slight left': 'M15 21v-7L8 7 M8 12V7h5', 'slight right': 'M9 21v-7l7-7 M16 12V7h-5',
+  uturn: 'M16 21V10a4 4 0 0 0-8 0v4 M5 11l3 3 3-3' };
+LANE_P['sharp left'] = LANE_P.left; LANE_P['sharp right'] = LANE_P.right;
+function laneSvg(ind) {
+  return `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ind.map(i => `<path d="${LANE_P[i] || LANE_P.straight}"></path>`).join('')}</svg>`;
+}
+function isRight(q, kind, val) { return kind === 'lane' ? !!(q.lanes[val] && q.lanes[val].ok) : String(val) === String(q.question.answer); }
+function rightText(q, kind) {
+  if (kind === 'lane') return q.lane_text;
+  return q.question.type === 'exit' ? `${ORD[q.question.answer] || q.question.answer} съезд` : SAY[q.question.answer];
+}
+function makeChoices(box, q, kind, onPick) {
+  box.innerHTML = '';
+  if (kind === 'lane') {
+    box.className = 'choices lanes';
+    q.lanes.forEach((l, i) => {
+      const b = document.createElement('button'); b.className = 'choice'; b.dataset.val = i;
+      b.setAttribute('aria-label', `Полоса ${i + 1} слева`);
+      b.innerHTML = laneSvg(l.ind) + `<span style="font-size:12px">${i + 1}</span>`;
+      b.onclick = () => onPick(i, b); box.appendChild(b);
+    });
+    return;
+  }
+  const exit = q.question.type === 'exit';
+  const opts = exit ? Array.from({ length: q.question.max }, (_, i) => [i + 1, `${i + 1}-й`, null])
+                    : Object.entries(DIRS).filter(([k]) => k !== 'uturn' || q.question.answer === 'uturn').map(([k, v]) => [k, v[0], v[1]]);
+  box.className = 'choices' + (opts.length === 4 ? ' c4' : '');
+  opts.forEach(([val, label, path]) => {
+    const b = document.createElement('button'); b.className = 'choice'; b.dataset.val = val;
+    b.innerHTML = (path ? `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"></path></svg>`
+                        : `<span style="font-size:24px; font-weight:800">${val}</span>`) + `<span>${path ? label : 'съезд'}</span>`;
+    b.onclick = () => onPick(val, b); box.appendChild(b);
+  });
+}
+function markChoices(box, q, kind, btn, ok) {
+  [...box.children].forEach(b => { b.disabled = true; if (!ok && b !== btn && isRight(q, kind, b.dataset.val)) b.classList.add('right'); });
+  if (btn) btn.classList.add(ok ? 'right' : 'wrong');
+}
+
+function ask(q, kind) {
+  G.asking = q; G.askKind = kind; q.hinted = false;
+  const exit = kind === 'turn' && q.question.type === 'exit';
+  $('askTitle').innerHTML = kind === 'lane' ? 'В какую <em>полосу</em> встаём?' : exit ? 'Кольцо: <em>какой съезд?</em>' : 'Куда <em>поворачиваем?</em>';
+  $('askSub').textContent = kind === 'lane' ? 'Впереди манёвр — перестройтесь заранее' : 'Вспомните, что говорил штурман';
+  $('btnHint').classList.remove('hidden');
+  makeChoices($('choices'), q, kind, answer);
+  $('ask').classList.remove('hidden');
+  G.askStart = performance.now(); G.askLimit = 10000;
+  clearInterval(G.timerI);
+  G.timerI = setInterval(() => {
+    if (G.paused) { G.askStart += 200; return; }
+    const left = Math.max(0, G.askLimit - (performance.now() - G.askStart));
+    $('timer').style.setProperty('--p', (left / G.askLimit * 100) + '%'); $('timerTxt').textContent = Math.ceil(left / 1000);
+    if (left <= 0) answer(null, null);
+  }, 200);
+}
+function useHint() {
+  const q = G.asking; if (!q || q.hinted) return;
+  q.hinted = true; G.hints++; G.score = Math.max(0, G.score - 20); G.hintPts += 20; G.askLimit += 6000;
+  $('btnHint').classList.add('hidden'); updateHud(); speak(q.prompt);
+}
+function drillItem(q, kind) {
+  const ap = slice(Math.max(0, q.along - 260), q.along).map(p => [+p[0].toFixed(5), +p[1].toFixed(5)]);
+  return { id: Math.random().toString(36).slice(2, 10), cat: kind === 'lane' ? 'lane' : q.cat, kind,
+           prompt: q.prompt, question: q.question, lanes: q.lanes || null, lane_text: q.lane_text || '',
+           lat: q.lat, lon: q.lon, approach: ap, route: `${pts.from.name} → ${pts.to.name}` };
+}
+function answer(val, btn) {
+  const q = G.asking, kind = G.askKind; if (!q) return;
+  if (kind === 'lane' ? q.laneGiven : q.answered) return;
+  clearInterval(G.timerI); G.asking = null;
+  if (kind === 'lane') q.laneGiven = true; else q.answered = true;
+  const ok = val !== null && isRight(q, kind, val);
+  const right = rightText(q, kind);
+  markChoices($('choices'), q, kind, btn, ok);
+  G.total++; G.log.push({ cat: kind === 'lane' ? 'lane' : q.cat, ok });
+  if (ok) {
+    G.correct++; G.streak++; G.bestStreak = Math.max(G.bestStreak, G.streak);
+    const base = Math.round((kind === 'lane' ? 30 : 50) * G.mult), bonus = Math.min(50, 10 * (G.streak - 1));
+    G.basePts += base; G.streakPts += bonus; G.score += base + bonus;
+    toast(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6aa84f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>${kind === 'lane' ? 'Полоса верная' : 'Верно'} · <b class="ok-t">+${base + bonus}</b>${G.streak > 1 ? ` · серия ×${G.streak}` : ''}`, true);
+  } else {
+    G.streak = 0; G.drill.push(drillItem(q, kind));
+    toast(`${val === null ? 'Время вышло' : kind === 'lane' ? 'Не та полоса' : 'Не туда'} · нужно ${kind === 'lane' ? 'занять' : 'было'} <b class="bad-t">${right}</b>`, false);
+    speak(kind === 'lane' ? `Нужно было занять ${right}. Ничего страшного.` : `Здесь нужно ${right}. Ничего страшного, едем дальше.`);
+  }
+  if (kind === 'turn') G.results.push(ok);
+  setTimeout(() => {
+    if (!G.asking) $('ask').classList.add('hidden');
+    if (kind === 'lane') q.laneAnswered = true;
+    else { G.qi++; revealNext(); updateHud(); }
+  }, ok ? 700 : 1600);
+}
+function togglePause() { if (!G.on) return; G.paused = !G.paused; $('btnPause').innerHTML = G.paused
+  ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"></path></svg>'
+  : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h3v14H7zM14 5h3v14h-3z"></path></svg>';
+  if (G.paused) stopSpeech(); }
+function demoFinish() {
+  endDrive(); listened = true;
+  $('demoEnd').classList.remove('hidden');
+  speak('Вот и весь маршрут. Запомнили? Теперь попробуйте проехать его сами.');
+}
+function endDrive() { G.on = false; clearInterval(G.timerI); $('hud').classList.add('hidden'); $('ask').classList.add('hidden'); }
+
+async function finish() {
+  endDrive();
+  const t = G.total, c = G.correct, pct = t ? c / t : 1;
+  const stars = pct === 1 && !G.hints ? 3 : pct >= .7 ? 2 : 1;
+  const score = Math.round(G.score);
+  const verdict = stars === 3 ? 'Идеально! Маршрут вы знаете.' : stars === 2 ? 'Хорошо! Ещё раз — и будет идеально.' : 'Неплохо для начала. Посмотрите показ ещё раз и попробуйте снова.';
+  const before = levelOf(BOARD && BOARD.me ? BOARD.me.total : 0);
+  let view = null;
+  try { view = await (await fetch('/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: playerName(), score, route: `${pts.from.name} → ${pts.to.name}` }) })).json(); } catch (e) {}
+  if (view) BOARD = view;
+  try { PROFILE = await (await fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: playerName(), op: 'played', results: G.log, drill: G.drill,
+                           from: [pts.from.lat, pts.from.lon], to: [pts.to.lat, pts.to.lon] }) })).json(); } catch (e) {}
+  const xp = view && view.me ? view.me.total : score, L2 = levelOf(xp);
+  $('resScore').textContent = score;
+  $('resStars').innerHTML = [1, 2, 3].map(i => `<svg width="30" height="30" viewBox="0 0 24 24" fill="${i <= stars ? '#eb9d2a' : '#e5e7e0'}" stroke="#23251d" stroke-width="1.2" aria-hidden="true"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"></path></svg>`).join('');
+  $('resVerdict').textContent = `${c} из ${t} верно. ${verdict}`;
+  const lines = [['Верные повороты и полосы', `+${G.basePts}`], ['Серии верных ответов', `+${G.streakPts}`],
+                 ['Просмотр маршрута', `+${G.listenBonus}`], ['Подсказки', G.hintPts ? `−${G.hintPts}` : '0']];
+  $('resLines').innerHTML = lines.map(([a, b]) => `<div class="board-row"><span>${a}</span><span>${b}</span></div>`).join('');
+  $('resLvl').textContent = L2.n; $('resLvlName').textContent = L2.name; $('resLvlTxt').textContent = L2.txt;
+  $('resRank').textContent = view && view.me ? `${view.me.rank} место из ${view.players}` : '';
+  $('resBar').style.width = '0%'; setTimeout(() => $('resBar').style.width = L2.pct + '%', 100);
+  const up = L2.n > before.n;
+  $('resLevelUp').classList.toggle('hidden', !up);
+  if (up) $('resLevelUp').innerHTML = `Новый уровень — <em style="color:#b17816">${L2.name}</em>!`;
+  show('scrResult');
+  speak(`Вы на месте. ${c} из ${t} верно, ${score} ${plural(score, 'очко', 'очка', 'очков')}. ${up ? 'Новый уровень: ' + L2.name + '. ' : ''}${verdict}`);
+}
+function again() { show(null); listened = false; openPreview(); }
+
+
+// ================= Профиль: мои маршруты, опасные места, разбор ошибок =================
+let PROFILE = { routes: [], stats: {}, drill: [] }, SPOTS = [], curSpot = null;
+const CAT_NAMES = { ring: 'Кольца', left_free: 'Налево без светофора', left_signal: 'Налево на светофоре', right: 'Направо',
+  straight: 'Проезд прямо', uturn: 'Развороты', fork: 'Развилки и съезды', lane: 'Выбор полосы' };
+const CAT_TIPS = {
+  ring: 'На кольце считайте съезды по порядку, начиная с первого после въезда. Заранее знайте номер своего съезда.',
+  left_free: 'Без светофора уступите встречным и поворачивайте, когда в потоке есть разрыв. Не спешите.',
+  left_signal: 'На светофоре при повороте налево пропустите встречных, которые едут прямо и направо.',
+  right: 'Перед поворотом направо займите крайнюю правую полосу и пропустите пешеходов.',
+  straight: 'Не каждый перекрёсток — поворот: запоминайте, где маршрут идёт прямо.',
+  uturn: 'Разворачивайтесь только там, где разрешено, и уступайте встречным.',
+  fork: 'На развилке заранее выберите сторону и держитесь своей полосы.',
+  lane: 'Занимайте нужную полосу заранее — за 200–300 метров до поворота.' };
+const api = (url, body) => fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined).then(r => r.json());
+function daysAgo(ts) { if (!ts) return null; return Math.floor((Date.now() / 1000 - ts) / 86400); }
+
+async function loadProfile() {
+  try { PROFILE = await api('/api/profile?name=' + encodeURIComponent(playerName())); } catch (e) {}
+  try { SPOTS = await api('/api/spots'); } catch (e) {}
+  renderMy(); renderSpots(); renderErr();
+}
+function useRoute(fr, to, spot) {
+  setPoint('from', fr); setPoint('to', to); curSpot = spot || null; buildRoute(true);
+}
+function renderMy() {
+  const box = $('myList'); box.innerHTML = '';
+  const rs = PROFILE.routes || [];
+  if (!rs.length) box.innerHTML = '<div style="font-size:13px; color:var(--muted)">Постройте маршрут и нажмите «★ В мои маршруты» — например, дом → работа.</div>';
+  rs.forEach(r => {
+    const d = daysAgo(r.last);
+    const when = d === null ? 'ещё не проезжали' : d === 0 ? 'сегодня' : d === 1 ? 'вчера' : `${d} ${plural(d, 'день', 'дня', 'дней')} назад`;
+    const row = document.createElement('div'); row.className = 'rowitem';
+    row.innerHTML = `<button class="main"><span class="t">${esc(r.title)}</span><span class="s">${esc(r.from[2])} → ${esc(r.to[2])} · ${when}</span></button>
+      <button class="x" aria-label="Удалить маршрут">✕</button>`;
+    row.querySelector('.main').onclick = () => useRoute(r.from, r.to);
+    row.querySelector('.x').onclick = async () => { PROFILE = await api('/api/profile', { name: playerName(), op: 'delete_route', id: r.id }); renderMy(); };
+    box.appendChild(row);
+  });
+  // напоминание: давно не повторяли
+  const due = rs.map(r => ({ r, d: daysAgo(r.last) })).filter(x => x.d === null || x.d >= 2)
+                .sort((a, b) => (b.d === null ? 999 : b.d) - (a.d === null ? 999 : a.d))[0];
+  const rm = $('remind');
+  rm.classList.toggle('hidden', !due);
+  if (due) {
+    rm.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b17816" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+      <span>Повторим «<em>${esc(due.r.title)}</em>»? ${due.d === null ? 'Вы его ещё не проезжали.' : `Последний раз ${due.d} ${plural(due.d, 'день', 'дня', 'дней')} назад.`} Свежий маршрут в голове — спокойнее за рулём.</span>`;
+    rm.onclick = () => useRoute(due.r.from, due.r.to);
+  }
+}
+function renderSpots() {
+  const box = $('spotList'); box.innerHTML = '';
+  if (!SPOTS.length) box.innerHTML = '<div style="font-size:13px; color:var(--muted)">Постройте маршрут через сложное место и нажмите «⚠ Сделать опасным местом».</div>';
+  SPOTS.forEach(sp => {
+    const row = document.createElement('div'); row.className = 'rowitem';
+    row.innerHTML = `<button class="main"><span class="t">⚠ ${esc(sp.title)}</span><span class="s">${esc(sp.tip || '')}</span></button>
+      <button class="x" aria-label="Удалить место">✕</button>`;
+    row.querySelector('.main').onclick = () => useRoute(sp.from, sp.to, sp);
+    row.querySelector('.x').onclick = async () => { if (!confirm('Удалить «' + sp.title + '»?')) return; SPOTS = await api('/api/spots', { op: 'delete', id: sp.id }); renderSpots(); };
+    box.appendChild(row);
+  });
+}
+function renderErr() {
+  const st = PROFILE.stats || {}, cats = Object.keys(st).filter(c => st[c][0] + st[c][1] > 0);
+  $('errCard').classList.toggle('hidden', !cats.length);
+  if (!cats.length) return;
+  const rate = c => st[c][0] / (st[c][0] + st[c][1]);
+  cats.sort((a, b) => rate(a) - rate(b));
+  const weak = cats.find(c => st[c][1] > 0);
+  $('errStats').innerHTML = cats.map(c => {
+    const n = st[c][0] + st[c][1], pct = Math.round(rate(c) * 100);
+    return `<div class="stat ${c === weak ? 'weak' : ''}"><span>${CAT_NAMES[c] || c}</span>
+      <div class="bar light"><div style="width:${pct}%; background:${pct >= 80 ? '#6aa84f' : pct >= 50 ? '#eb9d2a' : '#f54e00'}"></div></div><span>${pct}%</span></div>`;
+  }).join('');
+  $('errTip').innerHTML = weak ? `<b>Слабое место — ${CAT_NAMES[weak].toLowerCase()}.</b> ${CAT_TIPS[weak]}` : 'Ошибок пока нет — так держать!';
+  const btns = $('errBtns'); btns.innerHTML = '';
+  const dr = PROFILE.drill || [];
+  const weakN = dr.filter(d => d.cat === weak).length;
+  if (weak && weakN) btns.insertAdjacentHTML('beforeend', `<button class="btn" style="height:44px; flex:1" onclick="startDrill('${weak}')">Тренировать: ${CAT_NAMES[weak].toLowerCase()} (${weakN})</button>`);
+  if (dr.length) btns.insertAdjacentHTML('beforeend', `<button class="minibtn" onclick="startDrill(null)">Все ошибки (${dr.length})</button>`);
+}
+
+// --- формы в просмотре маршрута ---
+let formMode = 'route';
+function openForm(m) {
+  formMode = m; $('pvForm').classList.remove('hidden'); $('fMsg').textContent = '';
+  $('fTipBox').classList.toggle('hidden', m !== 'spot');
+  $('fTitleLbl').textContent = m === 'spot' ? 'Название опасного места' : 'Название маршрута';
+  $('fTitle').value = m === 'spot' ? '' : `${pts.from.name} → ${pts.to.name}`;
+  $('fTitle').placeholder = m === 'spot' ? 'Например: кольцо у рынка' : 'Например: дом → работа';
+  $('fTip').value = '';
+  $('fTitle').focus();
+}
+async function saveForm() {
+  const title = $('fTitle').value.trim();
+  if (!title) { $('fMsg').textContent = 'Введите название.'; return; }
+  const fr = [pts.from.lat, pts.from.lon, pts.from.name], to = [pts.to.lat, pts.to.lon, pts.to.name];
+  try {
+    if (formMode === 'route') {
+      PROFILE = await api('/api/profile', { name: playerName(), op: 'save_route', route: { title, from: fr, to } });
+      $('fMsg').textContent = '★ Сохранено в «Мои маршруты».';
+    } else {
+      SPOTS = await api('/api/spots', { op: 'add', title, tip: $('fTip').value.trim(), from: fr, to });
+      $('fMsg').textContent = '⚠ Добавлено в «Опасные места Иркутска».';
+    }
+    setTimeout(() => $('pvForm').classList.add('hidden'), 1200);
+  } catch (e) { $('fMsg').textContent = 'Не удалось сохранить: ' + e.message; }
+}
+
+// --- тренировка слабых мест ---
+const D = { items: [], i: 0, ok: 0, done: [] };
+function startDrill(cat) {
+  const all = PROFILE.drill || [];
+  D.items = (cat ? all.filter(d => d.cat === cat) : all).slice(0, 6);
+  if (!D.items.length) return;
+  D.i = 0; D.ok = 0; D.done = []; D.cat = cat;
+  show(null); $('drill').classList.remove('hidden');
+  if (cat) speak(`Тренируем: ${CAT_NAMES[cat].toLowerCase()}. ${CAT_TIPS[cat]}`);
+  drillShow();
+}
+function drillShow() {
+  const it = D.items[D.i];
+  layer.clearLayers();
+  const line = ML.polyline(it.approach, { color: '#2F80FA', weight: 7 }).addTo(layer);
+  ML.marker([it.lat, it.lon], { icon: ML.divIcon({ className: '', html: '<div class="ring"></div>', iconSize: [44, 44], iconAnchor: [22, 22] }), interactive: false }).addTo(layer);
+  if (it.approach.length) ML.marker(it.approach[0], { icon: ML.divIcon({ className: 'carico', html: CAR_SVG, iconSize: [30, 30], iconAnchor: [15, 15] }), interactive: false }).addTo(layer);
+  map.fitBounds(line.getBounds(), { maxZoom: 17, paddingTopLeft: [40, 40], paddingBottomRight: [40, Math.min(420, innerHeight * .5)] });
+  $('drillHead').textContent = `Работа над ошибками · ${D.i + 1} из ${D.items.length}`;
+  $('drillTitle').innerHTML = it.kind === 'lane' ? 'В какую <em>полосу</em> встаём?' : it.question.type === 'exit' ? 'Кольцо: <em>какой съезд?</em>' : 'Куда здесь <em>едем?</em>';
+  $('drillRoute').textContent = `Маршрут ${it.route}. Вы подъезжаете к этому месту.`;
+  $('drillText').classList.add('hidden'); $('drillNext').classList.add('hidden');
+  makeChoices($('drillChoices'), it, it.kind, (val, btn) => {
+    const ok = isRight(it, it.kind, val);
+    markChoices($('drillChoices'), it, it.kind, btn, ok);
+    if (ok) { D.ok++; D.done.push(it.id); }
+    $('drillText').innerHTML = (ok ? '<b class="ok-t">Верно!</b> ' : `<b class="bad-t">Нужно: ${esc(rightText(it, it.kind))}.</b> `) + 'Штурман говорил: «' + esc(it.prompt) + '»';
+    $('drillText').classList.remove('hidden'); $('drillNext').classList.remove('hidden');
+    $('drillNext').textContent = D.i + 1 < D.items.length ? 'Дальше' : 'Готово';
+    speak(ok ? 'Верно!' : 'Нужно ' + rightText(it, it.kind) + '. ' + it.prompt);
+  });
+}
+function drillNext() { if (++D.i < D.items.length) drillShow(); else endDrill(false); }
+async function endDrill(cancel) {
+  $('drill').classList.add('hidden'); stopSpeech();
+  const res = D.items.slice(0, cancel ? D.i : D.items.length).map(it => ({ cat: it.cat, ok: D.done.includes(it.id) }));
+  try { PROFILE = await api('/api/profile', { name: playerName(), op: 'played', results: res, drill_done: D.done }); } catch (e) {}
+  if (!cancel) speak(`Тренировка окончена: ${D.ok} из ${D.items.length} верно.`);
+  layer.clearLayers(); show('scrMenu');
+}
+
+async function osmStatus() {
+  try {
+    const r = await (await fetch('/api/osm')).json();
+    const need = !r.have || r.old;
+    $('osmNote').classList.toggle('hidden', !need);
+    $('osmNoteTxt').innerHTML = r.old ? 'Обновите данные Иркутска — штурман научился предупреждать о переходах, школах и лежачих полицейских. <em>Обновить →</em>'
+                                      : 'Светофоры и ориентиры Иркутска не загружены — штурман говорит без них. <em>Загрузить →</em>';
+    $('osmInfo').innerHTML = r.have ? `${r.old ? '⚠️ Старая версия' : '✅ Загружено'} ${r.date || ''}: <b>${r.signals}</b> ${plural(r.signals, 'светофор', 'светофора', 'светофоров')}, <b>${r.pois}</b> ${plural(r.pois, 'ориентир', 'ориентира', 'ориентиров')}${r.crossings ? `, <b>${r.crossings}</b> ${plural(r.crossings, 'переход', 'перехода', 'переходов')}` : ''}.`
+                                    : 'Пока не загружены.';
+    $('btnOsm').textContent = r.have && !r.old ? 'Обновить' : 'Загрузить светофоры и ориентиры';
+  } catch (e) {}
+}
+async function downloadOsm() {
+  const b = $('btnOsm'); b.disabled = true; b.textContent = 'Загружаю… это до 2 минут';
+  $('osmInfo').textContent = 'Спрашиваю серверы OpenStreetMap…';
+  try {
+    const r = await (await fetch('/api/osm_download', { method: 'POST' })).json();
+    if (r.error) throw new Error(r.error);
+    await osmStatus();
+  } catch (e) {
+    $('osmInfo').textContent = '❌ Не получилось: ' + e.message + ' Попробуйте позже или через другой интернет (например, раздать с телефона).';
+    b.textContent = 'Попробовать ещё раз';
+  }
+  b.disabled = false;
+}
+setCarSpeed(store('nav_car') || '1');
+mapButtons();
+setTimeout(applyTools, 500);
+osmStatus();
+refreshProfile(); signMenu();
+</script>
+</body>
+</html>
